@@ -1,0 +1,842 @@
+<!--
+ * Copyright (c) 2024 OneNok_HK
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+-->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>particles life</title>
+    <style>
+        body {
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            background-color: black;
+        }
+
+        #controls {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            position: fixed;
+            top: 0;
+            right: -300px;
+            /* 初始位置在右側屏幕外 */
+            width: 300px;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            transition: right 0.3s ease-in-out;
+            z-index: 1000;
+        }
+
+        #controls > div:not(#controls > div > div) {
+            margin-top: 20px;
+        }
+
+        #controls.visible {
+            right: 0;
+            /* 向左移動以顯示 */
+        }
+
+        #toggle-controls {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            /* 改為右側 */
+            z-index: 1001;
+            background: rgba(255, 255, 255, 0.3);
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            color: rgba(0, 0, 0, 0.7);
+            transition: right 0.3s ease-in-out, opacity 0.3s ease;
+            opacity: 0;
+        }
+
+        #toggle-controls:hover {
+            opacity: 1;
+        }
+
+        canvas {
+            border: 1px solid;
+            border-color: rgb(63, 63, 63);
+        }
+
+        /* 修改文字樣式，使用 -webkit-text-stroke 來創建輪廓 */
+
+        /* 為每種顏色的區塊設置特定樣式 */
+        .one {
+            -webkit-text-stroke: .375px black;
+            -webkit-text-fill-color: #FF0000;
+        }
+
+        .two {
+            -webkit-text-stroke: .375px black;
+            -webkit-text-fill-color: #0000FF;
+        }
+
+        .three {
+            -webkit-text-stroke: .375px black;
+            -webkit-text-fill-color: #00FF00;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="toggle-controls">☰</button>
+    <div id="controls">
+        <!-- 在 HTML 中，為需要隨機化的滑塊添加 'randomizable' 類 -->
+        <!-- 一號 -->
+        <div>
+            <div>
+                <label for="one-one"><span class="one">一號->一號:</span></label>
+                <input type="range" id="one-one" class="randomizable rules" min="-1" max="1" step="0.1" value="0.4">
+                <input type="number" id="one-one-number" min="-1" max="1" step="0.1" value="0.4">
+            </div>
+            <div>
+                <label for="one-one-distance"><span class="one">一號->一號距離:</span></label>
+                <input type="range" id="one-one-distance" class="randomizable rules" min="10" max="300" step="10" value="150">
+                <input type="number" id="one-one-distance-number" min="10" max="300" step="10" value="150">
+            </div>
+            <div>
+                <label for="one-two"><span class="one">一號-></span><span class="two">二號:</span></label>
+                <input type="range" id="one-two" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.6">
+                <input type="number" id="one-two-number" min="-1" max="1" step="0.1" value="-0.6">
+            </div>
+            <div>
+                <label for="one-two-distance"><span class="one">一號-></span><span class="two">二號距離:</span></label>
+                <input type="range" id="one-two-distance" class="randomizable rules" min="10" max="300" step="10" value="12">
+                <input type="number" id="one-two-distance-number" min="10" max="300" step="10" value="12">
+            </div>
+            <div>
+                <label for="one-three"><span class="one">一號-></span><span class="three">三號:</span></label>
+                <input type="range" id="one-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
+                <input type="number" id="one-three-number" min="-1" max="1" step="0.1" value="0.5">
+            </div>
+            <div>
+                <label for="one-three-distance"><span class="one">一號-></span><span class="three">三號距離:</span></label>
+                <input type="range" id="one-three-distance" class="randomizable rules" min="10" max="300" step="10" value="10">
+                <input type="number" id="one-three-distance-number" min="10" max="300" step="10" value="10">
+            </div>
+        </div>
+        <!-- 二號 -->
+        <div>
+            <div>
+                <label for="two-two"><span class="two">二號->二號:</span></label>
+                <input type="range" id="two-two" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
+                <input type="number" id="two-two-number" min="-1" max="1" step="0.1" value="0.5">
+            </div>
+            <div>
+                <label for="two-two-distance"><span class="two">二號->二號距離:</span></label>
+                <input type="range" id="two-two-distance" class="randomizable rules" min="10" max="300" step="10" value="100">
+                <input type="number" id="two-two-distance-number" min="10" max="300" step="10" value="100">
+            </div>
+            <div>
+                <label for="two-three"><span class="two">二號-></span><span class="three">三號:</span></label>
+                <input type="range" id="two-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
+                <input type="number" id="two-three-number" min="-1" max="1" step="0.1" value="0.5">
+            </div>
+            <div>
+                <label for="two-three-distance"><span class="two">二號-></span><span class="three">三號距離:</span></label>
+                <input type="range" id="two-three-distance" class="randomizable rules" min="10" max="300" step="10"
+                    value="100">
+                <input type="number" id="two-three-distance-number" min="10" max="300" step="10" value="100">
+            </div>
+            <div>
+                <label for="two-one"><span class="two">二號-></span><span class="one">一號:</span></label>
+                <input type="range" id="two-one" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
+                <input type="number" id="two-one-number" min="-1" max="1" step="0.1" value="0.5">
+            </div>
+            <div>
+                <label for="two-one-distance"><span class="two">二號-></span><span class="one">一號距離:</span></label>
+                <input type="range" id="two-one-distance" class="randomizable rules" min="10" max="300" step="10" value="200">
+                <input type="number" id="two-one-distance-number" min="10" max="300" step="10" value="200">
+            </div>
+        </div>
+        <!-- 三號 -->
+        <div>
+            <div>
+                <label for="three-three"><span class="three">三號->三號:</span></label>
+                <input type="range" id="three-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.4">
+                <input type="number" id="three-three-number" min="-1" max="1" step="0.1" value="0.4">
+            </div>
+            <div>
+                <label for="three-three-distance"><span class="three">三號->三號距離:</span></label>
+                <input type="range" id="three-three-distance" class="randomizable rules" min="10" max="300" step="10"
+                    value="130">
+                <input type="number" id="three-three-distance-number" min="10" max="300" step="10" value="130">
+            </div>
+            <div>
+                <label for="three-one"><span class="three">三號-></span><span class="one">一號:</span></label>
+                <input type="range" id="three-one" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.5">
+                <input type="number" id="three-one-number" min="-1" max="1" step="0.1" value="-0.5">
+            </div>
+            <div>
+                <label for="three-one-distance"><span class="three">三號-></span><span class="one">一號距離:</span></label>
+                <input type="range" id="three-one-distance" class="randomizable rules" min="10" max="300" step="10"
+                    value="100">
+                <input type="number" id="three-one-distance-number" min="10" max="300" step="10" value="100">
+            </div>
+            <div>
+                <label for="three-two"><span class="three">三號-></span><span class="two">二號:</span></label>
+                <input type="range" id="three-two" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.5">
+                <input type="number" id="three-two-number" min="-1" max="1" step="0.1" value="-0.5">
+            </div>
+            <div>
+                <label for="three-two-distance"><span class="three">三號-></span><span class="two">二號距離:</span></label>
+                <input type="range" id="three-two-distance" class="randomizable rules" min="10" max="300" step="10"
+                    value="10">
+                <input type="number" id="three-two-distance-number" min="10" max="300" step="10" value="10">
+            </div>
+        </div>
+
+        <div>
+            <!-- 添加隨機化按鈕 -->
+            <div>
+                <button id="randomize-button">隨機化所有值</button>
+            </div>
+
+            <!-- 添加重新開始按鈕 -->
+            <div>
+                <button id="restart-button">重新開始遊戲</button>
+            </div>
+
+            <!-- 添加新的隨機化並重新開始按鈕 -->
+            <div>
+                <button id="randomize-and-restart-button">隨機化並重新開始</button>
+            </div>
+        </div>
+
+        <!-- 在控制面板中添加匯出和導入按鈕 -->
+        <div>
+            <button id="export-rules">匯出規則</button>
+            <button id="import-rules">導入規則</button>
+            <button id="import-rules-and-restart">導入規則並重新開始</button>
+        </div>
+        <input type="file" id="import-file" style="display: none;">
+
+        <div>
+            <div class="one">
+                <label for="one-particles">一號粒子數量:</label>
+                <input type="range" id="one-particles" class="rules" min="10" max="500" step="10" value="250">
+                <input type="number" id="one-particles-number" min="10" max="500" step="10" value="250">
+            </div>
+            <div class="two">
+                <label for="two-particles">二號粒子數量:</label>
+                <input type="range" id="two-particles" class="rules" min="10" max="500" step="10" value="250">
+                <input type="number" id="two-particles-number" min="10" max="500" step="10" value="250">
+            </div>
+            <div class="three">
+                <label for="three-particles">三號粒子數量:</label>
+                <input type="range" id="three-particles" class="rules" min="10" max="500" step="10" value="250">
+                <input type="number" id="three-particles-number" min="10" max="500" step="10" value="250">
+            </div>
+        </div>
+
+        <div>
+            <label for="isThrough">是否穿透: </label>
+            <input type="checkbox" id="isThrough">
+        </div>
+
+        <!-- 添加滑鼠吸引力滑塊 -->
+        <div>
+            <label for="mouse-force">滑鼠吸引力:</label>
+            <input type="range" id="mouse-force" min="0" max="10" step="0.1" value="5">
+            <input type="number" id="mouse-force-number" min="0" max="10" step="0.1" value="5">
+        </div>
+
+        <!-- 添加顏色選擇器 -->
+        <div>
+            <div class="one">
+                <label for="one-color">一號粒子顏色:</label>
+                <input type="color" id="one-color" value="#FF0000">
+            </div>
+            <div class="two">
+                <label for="two-color">二號粒子顏色:</label>
+                <input type="color" id="two-color" value="#0000FF">
+            </div>
+            <div class="three">
+                <label for="three-color">三號粒子顏色:</label>
+                <input type="color" id="three-color" value="#00FF00">
+            </div>
+        </div>
+
+        <div>
+            <label for="updateInterval">更新間隔(ms):</label>
+            <input type="range" id="updateInterval" min="1" max="2000" step="0.01" value="16.66">
+            <input type="number" id="updateInterval-number" min="1" max="2000" step="0.01" value="16.66">
+            <select id="updateInterval-unit">
+                <option value="33.33">30 UPS</option>
+                <option value="16.66" selected>60 UPS</option>
+                <option value="8.33">120 UPS</option>
+                <option value="6.94">144 UPS</option>
+                <option value="6.06">165 UPS</option>
+                <option value="4.16">240 UPS</option>
+                <option value="2.77">360 UPS</option>
+                <option value="2.08">480 UPS</option>
+                <option value="2.00">500 UPS</option>
+                <option value="1.85">540 UPS</option>
+                <option value="1.66">600 UPS</option>
+                <option value="1.38">720 UPS</option>
+            </select>
+            <p>UPS: Update Per Second，每秒更新次數</p>
+            <p>注意: 更新間隔越短，粒子運動越流暢，但會增加CPU負擔。</p>
+        </div>
+
+        <!-- 在控制面板中添加性能數據顯示 -->
+        <div id="performance-data">
+            <h3>性能數據</h3>
+            <p>渲染FPS: <span id="fps"></span><br>(這並不是遊戲每秒更新次數。)</p>
+            <p>粒子更新總時間: <span id="total-time"></span> ms</p>
+            <p>粒子重力影響計算時間: <span id="offsets-loop-time"></span> ms</p>
+            <p>粒子更新位置時間: <span id="position-update-time"></span> ms</p>
+        </div>
+
+        <!-- 在控制面板中添加新的控制元素 -->
+        <div>
+            <div>
+                <label for="showGrid">顯示網格: </label>
+                <input type="checkbox" id="showGrid">
+            </div>
+            <div>
+                <p>當前所選單元格: <span id="selected-cell"></span></p>
+                <p>網格寬度: <span id="grid-width"></span></p>
+                <p>網格高度: <span id="grid-height"></span></p>
+            </div>
+            <div>
+                <label for="setectGridDistance">模擬作用範圍: </label>
+                <input type="range" id="setectGridDistance" min="10" max="500" step="10" value="250">
+                <input type="number" id="setectGridDistance-number" min="10" max="500" step="10" value="250">
+            </div>
+            <div>
+                <label for="cell-size">網格大小:</label>
+                <input type="range" id="cell-size" min="10" max="100" step="1" value="50">
+                <input type="number" id="cell-size-number" min="10" max="100" step="1" value="50">
+            </div>
+        </div>
+    </div>
+    <canvas id="board2d"></canvas>
+
+    <script>
+        // 創建 Web Worker
+        const worker = new Worker('particleWorker.js');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas2d = document.getElementById("board2d");
+            const ctx = canvas2d.getContext("2d");
+            const ballRadius = 3;
+
+            // 移除 WebGL 相關變量
+            /*
+            let useWebGL = false; // 保留這個變量，但始終為 false
+            */
+
+            function updateCanvasSize() {
+                const controlPanel = document.getElementById('controls');
+                const isPanelVisible = controlPanel.classList.contains('visible');
+                const width = document.documentElement.clientWidth - (isPanelVisible ? 300 : 0) - 2;
+                const height = document.documentElement.clientHeight - 2;
+
+                canvas2d.width = width;
+                canvas2d.height = height;
+
+                // 設置 Canvas 樣式
+                canvas2d.style.position = 'absolute';
+                canvas2d.style.left = '0';
+                canvas2d.style.top = '0';
+
+                worker.postMessage({ type: 'updateCanvasSize', width, height });
+            }
+
+            let showGrid = false;
+
+            function draw(particles, gridData) {
+                ctx.clearRect(0, 0, canvas2d.width, canvas2d.height);
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, canvas2d.width, canvas2d.height);
+                
+                // 首先繪製網格（如果需要的話）
+                if (showGrid && gridData) {
+                    drawGrid(ctx, gridData);
+                }
+                // 然後繪製粒子
+                particles.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, ballRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.isOutside ? 'white' : p.color;
+                    ctx.fill();
+                    ctx.closePath();
+                });
+            }
+
+            function drawGrid(ctx, gridData) {
+                const { cellSize, width, height, canvasWidth, canvasHeight, selectedCell, nearbyCells } = gridData;
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+
+                // 繪製垂直線
+                for (let x = 0; x <= width; x++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x * cellSize, 0);
+                    ctx.lineTo(x * cellSize, Math.min(height * cellSize, canvasHeight));
+                    ctx.stroke();
+                }
+
+                // 繪製水平線
+                for (let y = 0; y <= height; y++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y * cellSize);
+                    ctx.lineTo(Math.min(width * cellSize, canvasWidth), y * cellSize);
+                    ctx.stroke();
+                }
+
+                // 繪製選中的單元格和附近的單元格
+                if (selectedCell) {
+                    ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+                    ctx.fillRect(selectedCell.x * cellSize, selectedCell.y * cellSize, cellSize, cellSize);
+
+                    ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+                    nearbyCells.forEach(cell => {
+                        ctx.fillRect(cell.x * cellSize, cell.y * cellSize, cellSize, cellSize);
+                    });
+                }
+            }
+
+            // 移除 WebGL 相關的事件監聽器和函數調用
+            /*
+            // 例如，移除 useWebGLCheckbox 相關的代碼
+            const useWebGLCheckbox = document.getElementById("useWebGL");
+            useWebGLCheckbox.addEventListener('change', () => { ... });
+            */
+
+            // 初始化遊戲函數修改
+            function initGame() {
+                const oneCount = parseInt(document.getElementById('one-particles').value);
+                const twoCount = parseInt(document.getElementById('two-particles').value);
+                const threeCount = parseInt(document.getElementById('three-particles').value);
+                worker.postMessage({
+                    type: 'init',
+                    oneCount,
+                    twoCount,
+                    threeCount,
+                    canvasWidth: canvas2d.width,
+                    canvasHeight: canvas2d.height,
+                    colors: {
+                        one: document.getElementById('one-color').value,
+                        two: document.getElementById('two-color').value,
+                        three: document.getElementById('three-color').value
+                    }
+                });
+            }
+
+            // 初始化 canvas 尺寸
+            updateCanvasSize();
+
+            // 監聽視窗大小變化
+            window.addEventListener("resize", updateCanvasSize);
+
+            // 添加 FPS 計算相關變量
+            let frameCount = 0;
+            let lastTime = performance.now();
+            let fps = 0;
+
+            let gridCellSize = 50; // 默認值
+            let particles = [];
+            let performanceData = {
+                totalTime: 0,
+                offsetsLoopTime: 0,
+                positionUpdateTime: 0
+            };
+            let gridData = {
+                cellSize: 0,
+                width: 0,
+                height: 0,
+                selectedCell: null,
+                nearbyCells: []
+            };
+
+            function update() {
+                draw(particles, gridData);
+                // 更新性能數據顯示
+                document.getElementById('total-time').textContent = performanceData.totalTime.toFixed(2);
+                document.getElementById('offsets-loop-time').textContent = performanceData.offsetsLoopTime.toFixed(2);
+                document.getElementById('position-update-time').textContent = performanceData.positionUpdateTime.toFixed(2);
+
+                // 計算並顯示 FPS
+                frameCount++;
+                const currentTime = performance.now();
+                if (currentTime - lastTime >= 1000) {
+                    fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                    document.getElementById('fps').textContent = fps;
+                    frameCount = 0;
+                    lastTime = currentTime;
+                }
+
+                requestAnimationFrame(() => {
+                    worker.postMessage({ type: 'canUpdate' });
+                    update();
+                });
+            }
+
+            // 接收來自 Worker 的消息
+            worker.onmessage = function (e) {
+                if (e.data.type === 'update') {
+                    particles = e.data.particles;
+                    gridData = e.data.gridData;
+                    performanceData = e.data.performanceData;
+                    
+                    // 更新所選單元格的顯示
+                    if (gridData.selectedCell) {
+                        document.getElementById('selected-cell').textContent = `x: ${gridData.selectedCell.x}, y: ${gridData.selectedCell.y}`;
+                    } else {
+                        document.getElementById('selected-cell').textContent = '無';
+                    }
+
+                    // 更新網格寬度和高度的顯示
+                    document.getElementById('grid-width').textContent = gridData.width;
+                    document.getElementById('grid-height').textContent = gridData.height;
+                }
+            };
+
+            // 更新規則
+            function updateRules() {
+                const rules = {};
+                document.querySelectorAll('input[type="range"].randomizable').forEach(slider => {
+                    rules[slider.id] = parseFloat(slider.value);
+                });
+                worker.postMessage({ type: 'updateRules', rules });
+            }
+
+            // 為所有滑塊和數字輸入框添加事件監聽器
+            document.querySelectorAll('input[type="range"]').forEach(slider => {
+                const numberInput = document.getElementById(slider.id + '-number');
+                slider.addEventListener('input', () => {
+                    numberInput.value = slider.value;
+                    if (slider.className.includes('rules')) {
+                        updateRules();
+                    }
+                });
+                numberInput.addEventListener('input', () => {
+                    slider.value = numberInput.value;
+                    if (slider.className.includes('rules')) {
+                        updateRules();
+                    }
+                });
+            });
+
+
+
+            // 隨機化值
+            function randomizeValues() {
+                document.querySelectorAll('input[type="range"].randomizable').forEach(slider => {
+                    const numberInput = document.getElementById(slider.id + '-number');
+                    if (slider.id.endsWith('-distance')) {
+                        const value = Math.floor(Math.random() * (300 - 10 + 1)) + 10;
+                        slider.value = value;
+                        numberInput.value = value;
+                    } else {
+                        const value = (Math.random() * 2 - 1).toFixed(1);
+                        slider.value = value;
+                        numberInput.value = value;
+                    }
+                    slider.dispatchEvent(new Event('input'));
+                });
+                updateRules();
+            }
+
+            // 隨機化並重新開始
+            function randomizeAndRestart() {
+                randomizeValues();
+                initGame();
+            }
+
+            // 控制板切換
+            const toggleButton = document.getElementById('toggle-controls');
+            const controlPanel = document.getElementById('controls');
+
+            toggleButton.addEventListener('click', () => {
+                controlPanel.classList.toggle('visible');
+                if (controlPanel.classList.contains('visible')) {
+                    toggleButton.style.right = '310px';
+                    toggleButton.textContent = '✕';
+                } else {
+                    toggleButton.style.right = '10px';
+                    toggleButton.textContent = '☰';
+                }
+                updateCanvasSize();
+            });
+
+            // 自動隱藏切換按鈕
+            let hideTimeout;
+            document.addEventListener('mousemove', () => {
+                toggleButton.style.opacity = '0.5';
+                clearTimeout(hideTimeout);
+                hideTimeout = setTimeout(() => {
+                    toggleButton.style.opacity = '0';
+                }, 3000);
+            });
+
+            // 匯出規則
+            function exportRules() {
+                const rules = {};
+                // 添加規則
+                document.querySelectorAll('input[type="range"].randomizable').forEach(slider => {
+                    rules[slider.id] = parseFloat(slider.value);
+                });
+                // 添加粒子數量
+                ['one-particles', 'two-particles', 'three-particles'].forEach(id => {
+                    rules[id] = parseInt(document.getElementById(id).value);
+                });
+                // 添加穿透模式狀態
+                rules['isThrough'] = document.getElementById('isThrough').checked;
+                // 添加顏色
+                rules['one-color'] = document.getElementById('one-color').value;
+                rules['two-color'] = document.getElementById('two-color').value;
+                rules['three-color'] = document.getElementById('three-color').value;
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(rules));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "particle_rules.json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            }
+
+            // 導入規則
+            function importRules(shouldRestart) {
+                const fileInput = document.getElementById('import-file');
+                fileInput.value = '';
+                fileInput.dataset.shouldRestart = shouldRestart;
+                fileInput.click();
+            }
+
+            function handleFileSelect(event) {
+                const file = event.target.files[0];
+                const shouldRestart = event.target.dataset.shouldRestart === 'true';
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const rules = JSON.parse(e.target.result);
+                        Object.keys(rules).forEach(id => {
+                            if (id === 'isThrough') {
+                                // 設置穿透模式狀態
+                                const throughCheckbox = document.getElementById('isThrough');
+                                throughCheckbox.checked = rules[id];
+                                throughCheckbox.dispatchEvent(new Event('change'));
+                            } else if (id === 'one-color' || id === 'red-color') {
+                                document.getElementById('one-color').value = rules[id];
+                            } else if (id === 'two-color' || id === 'blue-color') {
+                                document.getElementById('two-color').value = rules[id];
+                            } else if (id === 'three-color' || id === 'green-color') {
+                                document.getElementById('three-color').value = rules[id];
+                            } else {
+                                const slider = document.getElementById(id);
+                                const numberInput = document.getElementById(id + '-number');
+                                if (slider && numberInput) {
+                                    slider.value = rules[id];
+                                    numberInput.value = rules[id];
+                                    slider.dispatchEvent(new Event('input'));
+                                }
+                            }
+                        });
+                        updateRules();
+                        if (shouldRestart) {
+                            setTimeout(initGame, 100);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            }
+
+            // 更新顏色
+            function updateColors() {
+                const oneColor = document.getElementById('one-color').value;
+                const twoColor = document.getElementById('two-color').value;
+                const threeColor = document.getElementById('three-color').value;
+                const One = document.querySelectorAll('.one');
+                const Two = document.querySelectorAll('.two');
+                const Three = document.querySelectorAll('.three');
+                // 更新文字填充顏色
+                One.forEach(label => label.style.webkitTextFillColor = oneColor);
+                Two.forEach(label => label.style.webkitTextFillColor = twoColor);
+                Three.forEach(label => label.style.webkitTextFillColor = threeColor);
+                
+                worker.postMessage({
+                    type: 'updateColors',
+                    colors: {
+                        one: oneColor,
+                        two: twoColor,
+                        three: threeColor
+                    }
+                });
+            }
+
+            // 為顏色選器添加事件監聽器
+            document.getElementById('one-color').addEventListener('input', updateColors);
+            document.getElementById('two-color').addEventListener('input', updateColors);
+            document.getElementById('three-color').addEventListener('input', updateColors);
+
+            document.getElementById('export-rules').addEventListener('click', exportRules);
+            document.getElementById('import-rules').addEventListener('click', () => importRules(false));
+            document.getElementById('import-rules-and-restart').addEventListener('click', () => importRules(true));
+            document.getElementById('import-file').addEventListener('change', handleFileSelect);
+
+            let mouseX = 0;
+            let mouseY = 0;
+            let isMouseDown = false;
+            let isUpdateMouse = false;
+            let isUpdateMouseDownUp = false;
+            const canvasList = [canvas2d];
+
+            // 穿透模式切換
+            const throughCheckbox = document.getElementById("isThrough");
+            throughCheckbox.addEventListener('change', () => {
+                worker.postMessage({ type: 'setThrough', isThrough: throughCheckbox.checked });
+            });
+            
+            // 添加按鈕事件監聽器
+            document.getElementById('randomize-button').addEventListener('click', randomizeValues);
+            document.getElementById('restart-button').addEventListener('click', initGame);
+            document.getElementById('randomize-and-restart-button').addEventListener('click', randomizeAndRestart);
+            document.addEventListener("keydown", function(event) {
+                if (event.key === "r") {
+                    randomizeValues();
+                }
+                if (event.key === "s") {
+                    initGame();
+                }
+                if (event.key === "f") {
+                    randomizeAndRestart();
+                }
+                if (event.key === "x") {
+                    isUpdateMouseDownUp = false;
+                }
+                if (event.key === "m") {
+                    isUpdateMouse = false;
+                }
+                if (event.key === "t") {
+                    throughCheckbox.checked = !throughCheckbox.checked;
+                    throughCheckbox.dispatchEvent(new Event('change'));
+                }
+            });
+
+            // 添加滑鼠事件監聽器
+            canvasList.forEach(canvas => {
+                canvas.addEventListener('mousedown', (e) => {
+                    isUpdateMouseDownUp = true;
+                    isUpdateMouse = true;
+                    isMouseDown = true;
+                    updateMousePosition(e);
+                });
+
+                canvas.addEventListener('mouseup', () => {
+                    if (isUpdateMouseDownUp) {
+                        isMouseDown = false;
+                        worker.postMessage({ type: 'setMouseInactive' });
+                    }
+                });
+
+                canvas.addEventListener('mousemove', (e) => {
+                    if (isUpdateMouse) {
+                        updateMousePosition(e);
+                    }
+                });
+            });
+
+            function updateMousePosition(e) {
+                const rect = canvas2d.getBoundingClientRect();
+                mouseX = e.clientX - rect.left;
+                mouseY = e.clientY - rect.top;
+                if (isMouseDown) {
+                    worker.postMessage({ type: 'updateMousePosition', x: mouseX, y: mouseY });
+                }
+            }
+
+            // 為滑鼠力量滑塊添加事件監聽器
+            const mouseForceSlider = document.getElementById('mouse-force');
+            const mouseForceNumber = document.getElementById('mouse-force-number');
+            mouseForceSlider.addEventListener('input', () => {
+                worker.postMessage({ type: 'updateMouseForce', force: parseFloat(mouseForceSlider.value) });
+            });
+            mouseForceNumber.addEventListener('input', () => {
+                worker.postMessage({ type: 'updateMouseForce', force: parseFloat(mouseForceNumber.value) });
+            });
+
+            // 為網格大小滑塊添加事件監聽器
+            const cellSizeSlider = document.getElementById('cell-size');
+            const cellSizeNumber = document.getElementById('cell-size-number');
+            cellSizeSlider.addEventListener('input', () => {
+                worker.postMessage({ type: 'updateCellSize', size: parseInt(cellSizeSlider.value) });
+            }); 
+            cellSizeNumber.addEventListener('input', () => {
+                worker.postMessage({ type: 'updateCellSize', size: parseInt(cellSizeNumber.value) });
+            });
+
+            // 為選中網格距離滑塊添加事件監聽器
+            const setectGridDistanceSlider = document.getElementById('setectGridDistance');
+            const setectGridDistanceNumber = document.getElementById('setectGridDistance-number');
+            setectGridDistanceSlider.addEventListener('input', () => {
+                worker.postMessage({ type: 'updateSetectGridDistance', distance: parseInt(setectGridDistanceSlider.value) });
+            });
+            setectGridDistanceNumber.addEventListener('input', () => {
+                worker.postMessage({ type: 'updateSetectGridDistance', distance: parseInt(setectGridDistanceNumber.value) });
+            })
+
+            // 為更新間隔滑塊添加事件監聽器
+            const updateIntervalSlider = document.getElementById('updateInterval');
+            const updateIntervalNumber = document.getElementById('updateInterval-number');
+            updateIntervalSlider.addEventListener('input', () => {
+                worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalSlider.value) });
+            });
+            updateIntervalNumber.addEventListener('input', () => {
+                worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalNumber.value) });
+            }); 
+            const updateIntervalUnit = document.getElementById('updateInterval-unit');
+            updateIntervalUnit.addEventListener('change', () => {
+                worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalUnit.value) });
+                updateIntervalSlider.value = updateIntervalUnit.value;
+                updateIntervalNumber.value = updateIntervalUnit.value;
+            });
+
+            // 初始化遊戲並開始更新循環
+            randomizeAndRestart();
+            update()
+
+            // 添加網格顯示切換
+            const showGridCheckbox = document.getElementById('showGrid');
+            showGridCheckbox.addEventListener('change', () => {
+                showGrid = showGridCheckbox.checked;
+                worker.postMessage({ type: 'toggleGrid', show: showGrid });
+            });
+
+            // 修改單元格選擇功能
+            canvas2d.addEventListener('click', (e) => {
+                if (showGrid) {
+                    const rect = canvas2d.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const cellX = Math.floor(x / gridCellSize);
+                    const cellY = Math.floor(y / gridCellSize);
+                    worker.postMessage({ type: 'selectCell', cell: { x: cellX, y: cellY } });
+                    
+                    // 直接更新顯示，以提供即時反饋
+                    document.getElementById('selected-cell').textContent = `x: ${cellX}, y: ${cellY}`;
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
