@@ -9,7 +9,7 @@ let one = [], two = [], three = [];  // 分別存儲三種類型粒子的數組
 let canvas = { width: 0, height: 0 };  // 畫布尺寸
 const ballRadius = 3;  // 粒子半徑
 let isThrough = false;  // 是否允許粒子穿過邊界
-const minDistSquaone = 2.25 * ballRadius * ballRadius;  // 最小距離的平方，用於避免粒子重疊
+const minDistSquaone = 0;  // 最小距離的平方，用於避免粒子重疊
 
 // 在文件開頭添加新的變量
 let showGrid = false;
@@ -22,6 +22,9 @@ let performanceData = {
     positionUpdateTime: 0,
 };
 
+// 在文件開頭添加一個全局變量來追蹤粒子 id
+let nextParticleId = 0;
+
 function isThroughconsoleLog(str) {
     if (isThrough) {
         console.log(str);
@@ -30,7 +33,9 @@ function isThroughconsoleLog(str) {
 
 // 創建單個粒子的函數
 function particle(x, y, c, type) {
-    return { "x": x, "y": y, "vx": 0, "vy": 0, "color": c, "type": type };
+    // 為每個新粒子分配一個唯一的 id
+    const id = nextParticleId++;
+    return { "id": id, "x": x, "y": y, "vx": 0, "vy": 0, "color": c, "type": type };
 }
 
 // 生成隨機 X 坐標
@@ -322,6 +327,7 @@ self.onmessage = function (e) {
     switch (e.data.type) {
         case 'init':
             // 初始化畫布和粒子
+            nextParticleId = 0; // 重置 id 計數器
             canvas.width = e.data.canvasWidth;
             canvas.height = e.data.canvasHeight;
             one = create(e.data.oneCount, e.data.colors.one, "one");
@@ -403,6 +409,15 @@ self.onmessage = function (e) {
                 }
             }, updateInterval);
             break;  
+        case 'getNearbyParticles':
+            const selectedParticle = e.data.particle;
+            const radius = e.data.radius;
+            const nearbylist = grid.getNearby(selectedParticle, radius, isThrough);
+            const nearbyParticles = nearbylist[0];
+            // 只返回附近粒子的 id
+            const nearbyParticleIds = nearbyParticles.map(p => p.id);
+            self.postMessage({ type: 'nearbyParticles', nearbyParticleIds, selectedParticleId: selectedParticle.id });
+            break;
     }
 };
 
