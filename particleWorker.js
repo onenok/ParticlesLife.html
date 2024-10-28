@@ -284,6 +284,19 @@ function update() {
         //isThroughconsoleLog("c2");
         applyMouseForce(three);
     }
+    let nearbyParticlesOne = [];
+    let nearbyParticlesTwo = [];
+    let nearbyParticlesThree = [];
+    if (selectedParticleId) {
+        let selectedParticle = particles.find(p => p.id === selectedParticleId);
+        const Ptype = selectedParticle.type;
+        const nearbylistOne = grid.getNearby(selectedParticle, rules[Ptype+'-one-distance'], isThrough);
+        const nearbylistTwo = grid.getNearby(selectedParticle, rules[Ptype+'-two-distance'], isThrough);
+        const nearbylistThree = grid.getNearby(selectedParticle, rules[Ptype+'-three-distance'], isThrough);
+        nearbyParticlesOne = nearbylistOne[0].filter(p => p.type === 'one');
+        nearbyParticlesTwo = nearbylistTwo[0].filter(p => p.type === 'two');
+        nearbyParticlesThree = nearbylistThree[0].filter(p => p.type === 'three');
+    }
     //isThroughconsoleLog("d");
     // 合併所有粒子到一個數組
     particles = [...one, ...two, ...three];
@@ -303,7 +316,7 @@ function update() {
         };
         //isThroughconsoleLog("h");
     }
-    self.postMessage({ type: 'update', particles, performanceData, gridData});
+    self.postMessage({ type: 'update', particles, performanceData, gridData, nearbyParticlesOne, nearbyParticlesTwo, nearbyParticlesThree});
     //isThroughconsoleLog("i");
 }
 
@@ -409,28 +422,14 @@ self.onmessage = function (e) {
                 }
             }, updateInterval);
             break;  
-        case 'getNearbyParticles':
-            const selectedParticleId = e.data.particleId;
-            const radius1 = e.data.radius1;
-            const radius2 = e.data.radius2;
-            const radius3 = e.data.radius3;
-            const selectedParticle = particles.find(p => p.id === selectedParticleId);
-            const nearbylist1 = grid.getNearby(selectedParticle, radius1, isThrough);
-            const nearbyParticles1 = nearbylist1[0];
-            const nearbylist2 = grid.getNearby(selectedParticle, radius2, isThrough);
-            const nearbyParticles2 = nearbylist2[0];
-            const nearbylist3 = grid.getNearby(selectedParticle, radius3, isThrough);
-            const nearbyParticles3 = nearbylist3[0];
-            // 只返回附近粒子的 id
-            const nearbyParticleIds1 = nearbyParticles1.map(p => p.id);
-            const nearbyParticleIds2 = nearbyParticles2.map(p => p.id);
-            const nearbyParticleIds3 = nearbyParticles3.map(p => p.id);
-            self.postMessage({ type: 'nearbyParticles', nearbyParticleIds1, nearbyParticleIds2, nearbyParticleIds3, selectedParticleId: selectedParticle.id });
+        case 'updateSelectedParticle':
+            selectedParticleId = e.data.particleId;
             break;
     }
 };
 
 // 滑鼠相關變量
+let selectedParticleId = null;
 let mouseX = 0;
 let mouseY = 0;
 let isMouseActive = false;

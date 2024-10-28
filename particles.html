@@ -350,14 +350,11 @@
             const canvas2d = document.getElementById("board2d");
             const ctx = canvas2d.getContext("2d");
             const ballRadius = 3;
-            let nearbyParticlesId1 = [];
-            let nearbyParticlesId2 = [];
-            let nearbyParticlesId3 = [];
+            let nearbyParticlesOne = [];
+            let nearbyParticlesTwo = [];
+            let nearbyParticlesThree = [];
             let selectedParticleId = null;
             let enableParticleSelection = false;
-            let radius1 = 0;
-            let radius2 = 0;
-            let radius3 = 0;
 
             // 移除 WebGL 相關變量
             /*
@@ -404,23 +401,23 @@
                             ctx.fill();
                             ctx.closePath();
                             ctx.beginPath();
-                            ctx.arc(p.x, p.y, radius1, 0, Math.PI * 2);
+                            ctx.arc(p.x, p.y, radiusOne.value, 0, Math.PI * 2);
                             ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
                             ctx.fill();
                             ctx.closePath();
                             ctx.beginPath();
-                            ctx.arc(p.x, p.y, radius2, 0, Math.PI * 2);
+                            ctx.arc(p.x, p.y, radiusTwo.value, 0, Math.PI * 2);
                             ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
                             ctx.fill();
                             ctx.closePath();
                             ctx.beginPath();
-                            ctx.arc(p.x, p.y, radius3, 0, Math.PI * 2);
+                            ctx.arc(p.x, p.y, radiusThree.value, 0, Math.PI * 2);
                             ctx.fillStyle = 'rgba(0, 0, 255, 0.5)';
-                        } else if (nearbyParticlesId1.includes(p.id)) {
+                        } else if (nearbyParticlesOne.includes(p)) {
                             ctx.fillStyle = 'red';
-                        } else if (nearbyParticlesId2.includes(p.id)) {
+                        } else if (nearbyParticlesTwo.includes(p)) {
                             ctx.fillStyle = 'green';
-                        } else if (nearbyParticlesId3.includes(p.id)) {
+                        } else if (nearbyParticlesThree.includes(p)) {
                             ctx.fillStyle = 'blue';
                         } else {
                             ctx.fillStyle = 'gray';
@@ -575,7 +572,9 @@
                     particles = e.data.particles;
                     gridData = e.data.gridData;
                     performanceData = e.data.performanceData;
-                    
+                    nearbyParticlesOne = e.data.nearbyParticlesOne;
+                    nearbyParticlesTwo = e.data.nearbyParticlesTwo;
+                    nearbyParticlesThree = e.data.nearbyParticlesThree;
                     // 更新所選單元格的顯示
                     if (gridData.selectedCell) {
                         document.getElementById('selected-cell').textContent = `x: ${gridData.selectedCell.x}, y: ${gridData.selectedCell.y}`;
@@ -782,7 +781,6 @@
             let isMouseDown = false;
             let isUpdateMouse = false;
             let isUpdateMouseDownUp = false;
-            const canvasList = [canvas2d];
 
             // 穿透模式切換
             const throughCheckbox = document.getElementById("isThrough");
@@ -817,26 +815,26 @@
             });
 
             // 添加滑鼠事件監聽器
-            canvasList.forEach(canvas => {
-                canvas.addEventListener('mousedown', (e) => {
+            canvas2d.addEventListener('mousedown', (e) => {
+                if (!enableParticleSelection){
                     isUpdateMouseDownUp = true;
                     isUpdateMouse = true;
                     isMouseDown = true;
                     updateMousePosition(e);
-                });
+                }
+            });
 
-                canvas.addEventListener('mouseup', () => {
-                    if (isUpdateMouseDownUp) {
-                        isMouseDown = false;
-                        worker.postMessage({ type: 'setMouseInactive' });
-                    }
-                });
+            canvas2d.addEventListener('mouseup', () => {
+                if (isUpdateMouseDownUp) {
+                    isMouseDown = false;
+                    worker.postMessage({ type: 'setMouseInactive' });
+                }
+            });
 
-                canvas.addEventListener('mousemove', (e) => {
-                    if (isUpdateMouse) {
-                        updateMousePosition(e);
-                    }
-                });
+            canvas2d.addEventListener('mousemove', (e) => {
+                if (isUpdateMouse) {
+                    updateMousePosition(e);
+                }
             });
 
             function updateMousePosition(e) {
@@ -938,17 +936,14 @@
                     if (selectedParticle) {
                         selectedParticleId = selectedParticle.id;
                         selectedParticleType = selectedParticle.type;
+                        radiusOne = document.getElementById(selectedParticleType+'-one-distance');
+                        radiusTwo = document.getElementById(selectedParticleType+'-two-distance');
+                        radiusThree = document.getElementById(selectedParticleType+'-three-distance');
                         document.getElementById('selectedParticleId').textContent = selectedParticleId;
-                        radius1 = document.getElementById(selectedParticleType+"-one-distance").value;
-                        radius2 = document.getElementById(selectedParticleType+"-two-distance").value;
-                        radius3 = document.getElementById(selectedParticleType+"-three-distance").value;
                         // 請求 worker 計算附近的粒子
                         worker.postMessage({ 
-                            type: 'getNearbyParticles', 
+                            type: 'updateSelectedParticle', 
                             particleId: selectedParticleId,
-                            radius1: radius1,
-                            radius2: radius2,
-                            radius3: radius3
                         });
                     } else {
                         document.getElementById('selectedParticleId').textContent = '無';
