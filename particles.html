@@ -83,12 +83,12 @@
 
         .two {
             -webkit-text-stroke: .375px black;
-            -webkit-text-fill-color: #0000FF;
+            -webkit-text-fill-color: #00FF00;
         }
 
         .three {
             -webkit-text-stroke: .375px black;
-            -webkit-text-fill-color: #00FF00;
+            -webkit-text-fill-color: #0000FF;
         }
     </style>
 </head>
@@ -264,11 +264,11 @@
             </div>
             <div class="two">
                 <label for="two-color">二號粒子顏色:</label>
-                <input type="color" id="two-color" value="#0000FF">
+                <input type="color" id="two-color" value="#00FF00">
             </div>
             <div class="three">
                 <label for="three-color">三號粒子顏色:</label>
-                <input type="color" id="three-color" value="#00FF00">
+                <input type="color" id="three-color" value="#0000FF">
             </div>
         </div>
 
@@ -298,9 +298,21 @@
         <div id="performance-data">
             <h3>性能數據</h3>
             <p>渲染FPS: <span id="fps"></span><br>(這並不是遊戲每秒更新次數。)</p>
-            <p>粒子更新總時間: <span id="total-time"></span> ms</p>
-            <p>粒子重力影響計算時間: <span id="offsets-loop-time"></span> ms</p>
-            <p>粒子更新位置時間: <span id="position-update-time"></span> ms</p>
+            <p>粒子更新總時間: 
+                <br>當前: <span id="total-time"></span> ms 
+                <br>平均: <span id="total-time-average"></span> ms
+                <br>最大: <span id="total-time-max"></span> ms
+            </p>
+            <p>重力影響計算時間: 
+                <br>當前: <span id="offsets-loop-time"></span> ms 
+                <br>平均: <span id="offsets-loop-time-average"></span> ms
+                <br>最大: <span id="offsets-loop-time-max"></span> ms
+            </p>
+            <p>更新位置時間: 
+                <br>當前: <span id="position-update-time"></span> ms 
+                <br>平均: <span id="position-update-time-average"></span> ms
+                <br>最大: <span id="position-update-time-max"></span> ms
+            </p>
         </div>
 
         <!-- 在控制面板中添加新的控制元素 -->
@@ -330,13 +342,27 @@
         <div>
             <h3>粒子影響範圍顯示</h3>
             <div>
-                <label for="enableParticleSelection">啟用粒子影響範圍顯示: </label>
-                <input type="checkbox" id="enableParticleSelection">
+                <label for="enableParticleAffcetRadiusShow">啟用粒子影響範圍顯示: </label>
+                <input type="checkbox" id="enableParticleAffcetRadiusShow">
+            </div>
+            <div>
+                <label for="isOneRadiusShow">顯示一號粒子影響範圍</label>
+                <input type="checkbox" id="isOneRadiusShow" checked>
+            </div>
+            <div>
+                <label for="isTwoRadiusShow">顯示二號粒子影響範圍</label>
+                <input type="checkbox" id="isTwoRadiusShow" checked>
+            </div>
+            <div>
+                <label for="isThreeRadiusShow">顯示三號粒子影響範圍</label>
+                <input type="checkbox" id="isThreeRadiusShow" checked>
             </div>
             <div>
                 <p>選中的粒子ID: <span id="selectedParticleId">無</span></p>
                 <p>選中的粒子屬性: <span id="selectedParticleProperty"></span></p>
-                <p>附近的粒子數量: <span id="nearbyParticlesNumber"></span></p>
+                <p>範圍內的一號粒子數量: <span id="nearbyParticlesOneNumber"></span></p>
+                <p>範圍內的二號粒子數量: <span id="nearbyParticlesTwoNumber"></span></p>
+                <p>範圍內的三號粒子數量: <span id="nearbyParticlesThreeNumber"></span></p>
             </div>
         </div>
     </div>
@@ -354,7 +380,10 @@
             let nearbyParticlesTwo = [];
             let nearbyParticlesThree = [];
             let selectedParticleId = null;
-            let enableParticleSelection = false;
+            let enableParticleAffcetRadiusShow = false;
+            let isOneRadiusShow = true;
+            let isTwoRadiusShow = true;
+            let isThreeRadiusShow = true;
 
             // 移除 WebGL 相關變量
             /*
@@ -389,41 +418,152 @@
                     drawGrid(ctx, gridData);
                 }
 
-                const enableParticleSelection = document.getElementById('enableParticleSelection').checked;
+                const enableParticleAffcetRadiusShow = document.getElementById('enableParticleAffcetRadiusShow').checked;
                 
                 particles.forEach(p => {
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, ballRadius, 0, Math.PI * 2);
                     
-                    if (enableParticleSelection) {
+                    if (enableParticleAffcetRadiusShow) {
                         if (p.id === selectedParticleId) {
+                            let isXOverflow = false;
+                            let isYOverflow = false;
+                            let newx = p.x;
+                            let newy = p.y;
                             ctx.fillStyle = 'rgba(255, 255, 255, 1)';
                             ctx.fill();
                             ctx.closePath();
-                            ctx.beginPath();
-                            ctx.arc(p.x, p.y, radiusOne.value, 0, Math.PI * 2);
-                            ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-                            ctx.fill();
-                            ctx.closePath();
-                            ctx.beginPath();
-                            ctx.arc(p.x, p.y, radiusTwo.value, 0, Math.PI * 2);
-                            ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
-                            ctx.fill();
-                            ctx.closePath();
-                            ctx.beginPath();
-                            ctx.arc(p.x, p.y, radiusThree.value, 0, Math.PI * 2);
-                            ctx.fillStyle = 'rgba(0, 0, 255, 0.5)';
-                        } else if (nearbyParticlesOne.includes(p)) {
+                            if (isOneRadiusShow) {
+                                ctx.beginPath();
+                                ctx.arc(p.x, p.y, radiusOne.value, 0, Math.PI * 2);
+                                ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+                                ctx.fill();
+                                ctx.closePath();
+                                if (throughCheckbox.checked) {
+                                    isXOverflow = false;
+                                    isYOverflow = false;
+                                    newx = p.x;
+                                    newy = p.y;
+                                    if ((p.x < radiusOne.value || p.x > canvas2d.width - radiusOne.value)){
+                                        isXOverflow = true;
+                                        newx = p.x < radiusOne.value ? p.x + canvas2d.width : p.x - canvas2d.width;
+                                        ctx.beginPath();
+                                        ctx.arc(newx, p.y, radiusOne.value, 0, Math.PI * 2);
+                                        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+                                        ctx.fill();
+                                        ctx.closePath();
+                                    }
+                                    if ((p.y < radiusOne.value || p.y > canvas2d.height - radiusOne.value)){
+                                        isYOverflow = true;
+                                        newy = p.y < radiusOne.value ? p.y + canvas2d.height : p.y - canvas2d.height;
+                                        ctx.beginPath();
+                                        ctx.arc(p.x, newy, radiusOne.value, 0, Math.PI * 2);
+                                        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+                                        ctx.fill();
+                                        ctx.closePath();
+                                    }
+                                    if (isXOverflow && isYOverflow) {
+                                        ctx.beginPath();
+                                        ctx.arc(newx, newy, radiusOne.value, 0, Math.PI * 2);
+                                        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+                                        ctx.fill();
+                                        ctx.closePath();
+                                    }
+                                }
+                            }
+                            if (isTwoRadiusShow) {  
+                                ctx.beginPath()
+                                ctx.arc(p.x, p.y, radiusTwo.value, 0, Math.PI * 2);
+                                ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+                                ctx.fill();
+                                ctx.closePath();
+                                if (throughCheckbox.checked) {
+                                    isXOverflow = false;
+                                    isYOverflow = false;
+                                    newx = p.x;
+                                    newy = p.y; 
+                                    if ((p.x < radiusTwo.value || p.x > canvas2d.width - radiusTwo.value)){
+                                        isXOverflow = true;
+                                        newx = p.x < radiusTwo.value ? p.x + canvas2d.width : p.x - canvas2d.width;
+                                        ctx.beginPath();
+                                        ctx.arc(newx, p.y, radiusTwo.value, 0, Math.PI * 2);
+                                        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+                                        ctx.fill();
+                                        ctx.closePath();
+                                    }
+                                    if ((p.y < radiusTwo.value || p.y > canvas2d.height - radiusTwo.value)){
+                                        isYOverflow = true;
+                                        newy = p.y < radiusTwo.value ? p.y + canvas2d.height : p.y - canvas2d.height;
+                                        ctx.beginPath();
+                                        ctx.arc(p.x, newy, radiusTwo.value, 0, Math.PI * 2);
+                                        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+                                        ctx.fill();
+                                        ctx.closePath();
+                                    }
+                                    if (isXOverflow && isYOverflow) {
+                                        ctx.beginPath();
+                                        ctx.arc(newx, newy, radiusTwo.value, 0, Math.PI * 2);
+                                        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+                                        ctx.fill();
+                                        ctx.closePath();
+                                    }
+                                }
+                            }
+                            if (isThreeRadiusShow) {
+                                ctx.beginPath();
+                                ctx.arc(p.x, p.y, radiusThree.value, 0, Math.PI * 2);
+                                ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
+                                ctx.fill();
+                                ctx.closePath();
+                                if (throughCheckbox.checked) {
+                                    isXOverflow = false;
+                                    isYOverflow = false;
+                                    newx = p.x;
+                                    newy = p.y;
+                                    if ((p.x < radiusThree.value || p.x > canvas2d.width - radiusThree.value)){
+                                        isXOverflow = true;
+                                        newx = p.x < radiusThree.value ? p.x + canvas2d.width : p.x - canvas2d.width;
+                                        ctx.beginPath();
+                                        ctx.arc(newx, p.y, radiusThree.value, 0, Math.PI * 2);
+                                        ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
+                                        ctx.fill();
+                                        ctx.closePath();
+                                    }   
+                                    if ((p.y < radiusThree.value || p.y > canvas2d.height - radiusThree.value)){
+                                        isYOverflow = true;
+                                        newy = p.y < radiusThree.value ? p.y + canvas2d.height : p.y - canvas2d.height;
+                                        ctx.beginPath();
+                                        ctx.arc(p.x, newy, radiusThree.value, 0, Math.PI * 2);
+                                        ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
+                                        ctx.fill();
+                                        ctx.closePath();
+                                    }
+                                    if (isXOverflow && isYOverflow) {
+                                        ctx.beginPath();
+                                        ctx.arc(newx, newy, radiusThree.value, 0, Math.PI * 2);
+                                        ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
+                                        ctx.fill();
+                                        ctx.closePath();
+                                    }
+                                }
+                            }
+                        } else if (nearbyParticlesOne.includes(p) && isOneRadiusShow) {
                             ctx.fillStyle = 'red';
-                        } else if (nearbyParticlesTwo.includes(p)) {
+                            ctx.fill();
+                            ctx.closePath();
+                        } else if (nearbyParticlesTwo.includes(p) && isTwoRadiusShow) {
                             ctx.fillStyle = 'green';
-                        } else if (nearbyParticlesThree.includes(p)) {
+                            ctx.fill();
+                            ctx.closePath();
+                        } else if (nearbyParticlesThree.includes(p) && isThreeRadiusShow) {
                             ctx.fillStyle = 'blue';
+                            ctx.fill();
+                            ctx.closePath();
                         } else {
                             ctx.fillStyle = 'gray';
+                            ctx.fill();
+                            ctx.closePath();
                         }
-                        ctx.fill();
-                        ctx.closePath();
                     } else {
                         ctx.fillStyle = p.isOutside ? 'white' : p.color;
                         ctx.fill();
@@ -508,9 +648,21 @@
             let particles = [];
             let performanceData = {
                 totalTime: 0,
+                totalTimeAll: [],
+                totalTimeMax: 0,
                 offsetsLoopTime: 0,
-                positionUpdateTime: 0
+                offsetsLoopTimeAll: [],
+                offsetsLoopTimeMax: 0,
+                positionUpdateTime: 0,
+                positionUpdateTimeAll: [],
+                positionUpdateTimeMax: 0
             };
+            let totalTimeAverageUpdateMs = 1000;
+            let offsetsLoopTimeAverageUpdateMs = 1000;
+            let positionUpdateTimeAverageUpdateMs = 1000;
+            let totalTimeAverageUpdateLastTime = 0;
+            let offsetsLoopTimeAverageUpdateLastTime = 0;
+            let positionUpdateTimeAverageUpdateLastTime = 0;
             let gridData = {
                 cellSize: 0,
                 width: 0,
@@ -521,14 +673,45 @@
 
             function update() {
                 draw(particles, gridData);
-                
+                if (performanceData.totalTime > performanceData.totalTimeMax) {
+                    performanceData.totalTimeMax = performanceData.totalTime;
+                }
+                if (performanceData.offsetsLoopTime > performanceData.offsetsLoopTimeMax){
+                    performanceData.offsetsLoopTimeMax = performanceData.offsetsLoopTime;
+                }
+                if (performanceData.positionUpdateTime > performanceData.positionUpdateTimeMax){
+                    performanceData.positionUpdateTimeMax = performanceData.positionUpdateTime;
+                }
+                performanceData.totalTimeAll.push(performanceData.totalTime);
+                performanceData.offsetsLoopTimeAll.push(performanceData.offsetsLoopTime);
+                performanceData.positionUpdateTimeAll.push(performanceData.positionUpdateTime);
                 // 更新性能數據顯示
                 document.getElementById('total-time').textContent = performanceData.totalTime.toFixed(2);
+                if (performance.now() - totalTimeAverageUpdateLastTime >= totalTimeAverageUpdateMs) {
+                    document.getElementById('total-time-average').textContent = (performanceData.totalTimeAll.reduce((a, b) => a + b, 0) / performanceData.totalTimeAll.length).toFixed(2);
+                    performanceData.totalTimeAll = [];  
+                    totalTimeAverageUpdateLastTime = performance.now();
+                }
+                document.getElementById('total-time-max').textContent = performanceData.totalTimeMax.toFixed(2);
+                
                 document.getElementById('offsets-loop-time').textContent = performanceData.offsetsLoopTime.toFixed(2);
+                if (performance.now() - offsetsLoopTimeAverageUpdateLastTime >= offsetsLoopTimeAverageUpdateMs) {
+                    document.getElementById('offsets-loop-time-average').textContent = (performanceData.offsetsLoopTimeAll.reduce((a, b) => a + b, 0) / performanceData.offsetsLoopTimeAll.length).toFixed(2);
+                    performanceData.offsetsLoopTimeAll = [];
+                    offsetsLoopTimeAverageUpdateLastTime = performance.now();
+                }
+                document.getElementById('offsets-loop-time-max').textContent = performanceData.offsetsLoopTimeMax.toFixed(2);
+                
                 document.getElementById('position-update-time').textContent = performanceData.positionUpdateTime.toFixed(2);
+                if (performance.now() - positionUpdateTimeAverageUpdateLastTime >= positionUpdateTimeAverageUpdateMs) {
+                    document.getElementById('position-update-time-average').textContent = (performanceData.positionUpdateTimeAll.reduce((a, b) => a + b, 0) / performanceData.positionUpdateTimeAll.length).toFixed(2);
+                    performanceData.positionUpdateTimeAll = [];
+                    positionUpdateTimeAverageUpdateLastTime = performance.now();
+                }
+                document.getElementById('position-update-time-max').textContent = performanceData.positionUpdateTimeMax.toFixed(2);
 
                 // 更新選中粒子的屬性顯示
-                if (enableParticleSelection){
+                if (enableParticleAffcetRadiusShow){
                     const propertyElement = document.getElementById('selectedParticleProperty');
                     if (selectedParticleId !== null && particles.length > 0) {
                         const selectedParticle = particles.find(p => p.id === selectedParticleId);
@@ -571,7 +754,9 @@
                 if (e.data.type === 'update') {
                     particles = e.data.particles;
                     gridData = e.data.gridData;
-                    performanceData = e.data.performanceData;
+                    performanceData.totalTime = e.data.performanceData.totalTime;
+                    performanceData.offsetsLoopTime = e.data.performanceData.offsetsLoopTime;
+                    performanceData.positionUpdateTime = e.data.performanceData.positionUpdateTime;
                     nearbyParticlesOne = e.data.nearbyParticlesOne;
                     nearbyParticlesTwo = e.data.nearbyParticlesTwo;
                     nearbyParticlesThree = e.data.nearbyParticlesThree;
@@ -586,10 +771,12 @@
                     document.getElementById('grid-width').textContent = gridData.width;
                     document.getElementById('grid-height').textContent = gridData.height;
                 } else if (e.data.type === 'nearbyParticles') {
-                    nearbyParticlesId1 = e.data.nearbyParticleIds1;
-                    nearbyParticlesId2 = e.data.nearbyParticleIds2;
-                    nearbyParticlesId3 = e.data.nearbyParticleIds3;
-                    document.getElementById('nearbyParticlesNumber').textContent = [nearbyParticlesId1.length, nearbyParticlesId2.length, nearbyParticlesId3.length].join('<br>');
+                    nearbyParticlesOne = e.data.nearbyParticlesOne;
+                    nearbyParticlesTwo = e.data.nearbyParticlesTwo;
+                    nearbyParticlesThree = e.data.nearbyParticlesThree;
+                    document.getElementById('nearbyParticlesOneNumber').textContent = nearbyParticlesOne.length;
+                    document.getElementById('nearbyParticlesTwoNumber').textContent = nearbyParticlesTwo.length;
+                    document.getElementById('nearbyParticlesThreeNumber').textContent = nearbyParticlesThree.length;
                 }
             };
 
@@ -816,7 +1003,7 @@
 
             // 添加滑鼠事件監聽器
             canvas2d.addEventListener('mousedown', (e) => {
-                if (!enableParticleSelection){
+                if (!enableParticleAffcetRadiusShow){
                     isUpdateMouseDownUp = true;
                     isUpdateMouse = true;
                     isMouseDown = true;
@@ -903,9 +1090,23 @@
                 worker.postMessage({ type: 'toggleGrid', show: showGrid });
             });
 
-            const enableParticleSelectionCheckbox = document.getElementById('enableParticleSelection');
-            enableParticleSelectionCheckbox.addEventListener('change', () => {
-                enableParticleSelection = enableParticleSelectionCheckbox.checked;
+            const enableParticleAffcetRadiusShowCheckbox = document.getElementById('enableParticleAffcetRadiusShow');
+            enableParticleAffcetRadiusShowCheckbox.addEventListener('change', () => {
+                enableParticleAffcetRadiusShow = enableParticleAffcetRadiusShowCheckbox.checked;
+                worker.postMessage({ type: 'toggleParticleAffcetRadiusShow', enable: enableParticleAffcetRadiusShow });
+            });
+
+            const isOneRadiusShowCheckbox = document.getElementById('isOneRadiusShow');
+            isOneRadiusShowCheckbox.addEventListener('change', () => {
+                isOneRadiusShow = isOneRadiusShowCheckbox.checked;
+            });
+            const isTwoRadiusShowCheckbox = document.getElementById('isTwoRadiusShow');
+            isTwoRadiusShowCheckbox.addEventListener('change', () => {
+                isTwoRadiusShow = isTwoRadiusShowCheckbox.checked;
+            });
+            const isThreeRadiusShowCheckbox = document.getElementById('isThreeRadiusShow');
+            isThreeRadiusShowCheckbox.addEventListener('change', () => {
+                isThreeRadiusShow = isThreeRadiusShowCheckbox.checked;
             });
             // 修改單元格選擇功能
             canvas2d.addEventListener('click', (e) => {
@@ -921,7 +1122,7 @@
                     document.getElementById('selected-cell').textContent = `x: ${cellX}, y: ${cellY}`;
                 }
                 
-                if (enableParticleSelection) {
+                if (enableParticleAffcetRadiusShow) {
                     const rect = canvas2d.getBoundingClientRect();
                     const x = e.clientX - rect.left;
                     const y = e.clientY - rect.top;

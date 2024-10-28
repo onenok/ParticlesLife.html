@@ -287,15 +287,39 @@ function update() {
     let nearbyParticlesOne = [];
     let nearbyParticlesTwo = [];
     let nearbyParticlesThree = [];
-    if (selectedParticleId) {
+    if (selectedParticleId && enableParticleAffcetRadiusShow) {
         let selectedParticle = particles.find(p => p.id === selectedParticleId);
         const Ptype = selectedParticle.type;
-        const nearbylistOne = grid.getNearby(selectedParticle, rules[Ptype+'-one-distance'], isThrough);
-        const nearbylistTwo = grid.getNearby(selectedParticle, rules[Ptype+'-two-distance'], isThrough);
-        const nearbylistThree = grid.getNearby(selectedParticle, rules[Ptype+'-three-distance'], isThrough);
-        nearbyParticlesOne = nearbylistOne[0].filter(p => p.type === 'one');
-        nearbyParticlesTwo = nearbylistTwo[0].filter(p => p.type === 'two');
-        nearbyParticlesThree = nearbylistThree[0].filter(p => p.type === 'three');
+        const rOne = rules[Ptype+'-one-distance'];
+        const rTwo = rules[Ptype+'-two-distance'];
+        const rThree = rules[Ptype+'-three-distance'];
+        grid.clear();
+        one.forEach(b => grid.add(b));
+        const nearbylistOne = grid.getNearby(selectedParticle, rOne, isThrough);
+        const offsetsOne = nearbylistOne[1];
+        nearbyParticlesOne = nearbylistOne[0].filter((p, i) => {
+            const dx = offsetsOne[i].dx;
+            const dy = offsetsOne[i].dy;
+            return (p.x+dx-selectedParticle.x)*(p.x+dx-selectedParticle.x)+(p.y+dy-selectedParticle.y)*(p.y+dy-selectedParticle.y) <= rOne*rOne;
+        });
+        grid.clear();
+        two.forEach(b => grid.add(b));
+        const nearbylistTwo = grid.getNearby(selectedParticle, rTwo, isThrough);
+        const offsetsTwo = nearbylistTwo[1];
+        nearbyParticlesTwo = nearbylistTwo[0].filter((p, i) => {
+            const dx = offsetsTwo[i].dx;
+            const dy = offsetsTwo[i].dy;
+            return (p.x+dx-selectedParticle.x)*(p.x+dx-selectedParticle.x)+(p.y+dy-selectedParticle.y)*(p.y+dy-selectedParticle.y) <= rTwo*rTwo;
+        });
+        grid.clear();
+        three.forEach(b => grid.add(b));
+        const nearbylistThree = grid.getNearby(selectedParticle, rThree, isThrough);
+        const offsetsThree = nearbylistThree[1];
+        nearbyParticlesThree = nearbylistThree[0].filter((p, i) => {
+            const dx = offsetsThree[i].dx;
+            const dy = offsetsThree[i].dy;
+            return (p.x+dx-selectedParticle.x)*(p.x+dx-selectedParticle.x)+(p.y+dy-selectedParticle.y)*(p.y+dy-selectedParticle.y) <= rThree*rThree;
+        });
     }
     //isThroughconsoleLog("d");
     // 合併所有粒子到一個數組
@@ -425,6 +449,9 @@ self.onmessage = function (e) {
         case 'updateSelectedParticle':
             selectedParticleId = e.data.particleId;
             break;
+        case 'toggleParticleAffcetRadiusShow':
+            enableParticleAffcetRadiusShow = e.data.enable;
+            break;
     }
 };
 
@@ -438,6 +465,7 @@ let cellSize = 50;
 let setectGridDistance = 250;
 let canUpdate = false;
 let isUpdating = false;
+let enableParticleAffcetRadiusShow = false;
 let updateInterval = 16; // 預設速度設為 16 毫秒，約等於 60 FPS
 let updateIntervalId = setInterval(() => {
     if (canUpdate) {
