@@ -410,13 +410,22 @@ self.onmessage = function (e) {
             }, updateInterval);
             break;  
         case 'getNearbyParticles':
-            const selectedParticle = e.data.particle;
-            const radius = e.data.radius;
-            const nearbylist = grid.getNearby(selectedParticle, radius, isThrough);
-            const nearbyParticles = nearbylist[0];
+            const selectedParticleId = e.data.particleId;
+            const radius1 = e.data.radius1;
+            const radius2 = e.data.radius2;
+            const radius3 = e.data.radius3;
+            const selectedParticle = particles.find(p => p.id === selectedParticleId);
+            const nearbylist1 = grid.getNearby(selectedParticle, radius1, isThrough);
+            const nearbyParticles1 = nearbylist1[0];
+            const nearbylist2 = grid.getNearby(selectedParticle, radius2, isThrough);
+            const nearbyParticles2 = nearbylist2[0];
+            const nearbylist3 = grid.getNearby(selectedParticle, radius3, isThrough);
+            const nearbyParticles3 = nearbylist3[0];
             // 只返回附近粒子的 id
-            const nearbyParticleIds = nearbyParticles.map(p => p.id);
-            self.postMessage({ type: 'nearbyParticles', nearbyParticleIds, selectedParticleId: selectedParticle.id });
+            const nearbyParticleIds1 = nearbyParticles1.map(p => p.id);
+            const nearbyParticleIds2 = nearbyParticles2.map(p => p.id);
+            const nearbyParticleIds3 = nearbyParticles3.map(p => p.id);
+            self.postMessage({ type: 'nearbyParticles', nearbyParticleIds1, nearbyParticleIds2, nearbyParticleIds3, selectedParticleId: selectedParticle.id });
             break;
     }
 };
