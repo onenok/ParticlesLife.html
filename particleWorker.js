@@ -10,6 +10,13 @@ let canvas = { width: 0, height: 0 };  // 畫布尺寸
 const ballRadius = 3;  // 粒子半徑
 let isThrough = false;  // 是否允許粒子穿過邊界
 const minDistSquaone = 0;  // 最小距離的平方，用於避免粒子重疊
+let isGrid = true;  // 是否使用網格計算
+let offsetsList = isThrough?[
+    {dx: 0, dy: 0},
+    {dx: -1*canvas.width, dy: -1*canvas.height}, {dx: 0, dy: -1*canvas.height}, {dx: 1*canvas.width, dy: -1*canvas.height},
+    {dx: -1*canvas.width, dy: 0}, {dx: 1*canvas.width, dy: 0},
+    {dx: -1*canvas.width, dy: 1*canvas.height}, {dx: 0, dy: 1*canvas.height}, {dx: 1*canvas.width, dy: 1*canvas.height}
+]:[{dx: 0, dy: 0}];
 
 // 在文件開頭添加新的變量
 let showGrid = false;
@@ -163,15 +170,11 @@ class Grid {
 let grid;
 
 // 粒子間相互作用的規則函數
-function rule(p1, p2, g, r) {
-    //isThroughconsoleLog("rule", performance.now());
+function rule_grid(p1, p2, g, r) {
     const startTime = performance.now();
     const r2 = r * r;
-    //isThroughconsoleLog("rule1", performance.now());
     grid.clear();
-    //isThroughconsoleLog("rule2", performance.now());
     p2.forEach(b => grid.add(b));
-    //isThroughconsoleLog("rule3", performance.now());
     for (let i = 0; i < p1.length; i++) {
         let fx = 0, fy = 0;
         const a = p1[i];
@@ -225,6 +228,58 @@ function rule(p1, p2, g, r) {
     //isThroughconsoleLog("rule4", performance.now());
     performanceData.totalTime += performance.now() - startTime;
 }
+function rule_direct(p1, p2, g, r) {
+    const startTime = performance.now();
+    const r2 = r * r;
+    for (let i = 0; i < p1.length; i++) {
+        let fx = 0, fy = 0;
+        const a = p1[i];
+        const offsetsLoopStartTime = performance.now();
+        for (let j = 0; j < p2.length; j++) {
+            for (let offset of offsetsList){
+                const b = p2[j];
+                const dx = a.x - (b.x + offset.dx);
+                const dy = a.y - (b.y + offset.dy);
+                const distSquared = dx * dx + dy * dy;
+                if (distSquared > minDistSquaone && distSquared < r2) {
+                    const F = -g / Math.sqrt(distSquared);
+                    fx += F * dx;
+                    fy += F * dy;
+                }
+            }
+        }
+        performanceData.offsetsLoopTime += performance.now() - offsetsLoopStartTime;
+        // 更新粒子速度
+        a.vx = (a.vx + fx) * 0.5;
+        a.vy = (a.vy + fy) * 0.5;
+
+        // 更新粒子位置
+        const positionUpdateStartTime = performance.now();
+        if (isThrough) {
+            // 如果允許穿透，使用模運算處理邊界
+            a.x = (a.x + a.vx + canvas.width) % canvas.width;
+            a.y = (a.y + a.vy + canvas.height) % canvas.height;
+        } else {
+            // 如果不允許穿透，在邊界處反彈
+            let nextX = a.x + a.vx;
+            let nextY = a.y + a.vy;
+
+            if (nextX < ballRadius || nextX > canvas.width - ballRadius) {
+                a.vx *= -1;
+                nextX = 2*Math.max(ballRadius, Math.min(nextX, canvas.width - ballRadius))-nextX;
+            }
+            if (nextY < ballRadius || nextY > canvas.height - ballRadius) {
+                a.vy *= -1;
+                nextY = 2*Math.max(ballRadius, Math.min(nextY, canvas.height - ballRadius))-nextY;
+            }
+
+            a.x = nextX;
+            a.y = nextY;
+        }
+        performanceData.positionUpdateTime += performance.now() - positionUpdateStartTime;
+    }
+    performanceData.totalTime += performance.now() - startTime;
+}
 
 // 規則對象，定義不同類型粒子間的相互作用
 let rules = {
@@ -255,26 +310,27 @@ function update() {
     };
 
     // 應用所有規則
-    //isThroughconsoleLog("a");
-    rule(two, two, rules['two-two'], rules['two-two-distance']);
-    //isThroughconsoleLog("a1");
-    rule(two, one, rules['two-one'], rules['two-one-distance']);
-    //isThroughconsoleLog("a2");
-    rule(two, three, rules['two-three'], rules['two-three-distance']);
-    //isThroughconsoleLog("a3");
-    rule(one, one, rules['one-one'], rules['one-one-distance']);
-    //isThroughconsoleLog("a4");
-    rule(one, two, rules['one-two'], rules['one-two-distance']);
-    //isThroughconsoleLog("a5");
-    rule(one, three, rules['one-three'], rules['one-three-distance']);
-    //isThroughconsoleLog("a6");
-    rule(three, three, rules['three-three'], rules['three-three-distance']);
-    //isThroughconsoleLog("a7");
-    rule(three, one, rules['three-one'], rules['three-one-distance']);
-    //isThroughconsoleLog("a8");
-    rule(three, two, rules['three-two'], rules['three-two-distance']);
-    //isThroughconsoleLog("b");
-
+    if (isGrid) {
+        rule_grid(one, one, rules['one-one'], rules['one-one-distance']);
+        rule_grid(one, two, rules['one-two'], rules['one-two-distance']);
+        rule_grid(one, three, rules['one-three'], rules['one-three-distance']);
+        rule_grid(two, two, rules['two-two'], rules['two-two-distance']);
+        rule_grid(two, three, rules['two-three'], rules['two-three-distance']);
+        rule_grid(two, one, rules['two-one'], rules['two-one-distance']);
+        rule_grid(three, three, rules['three-three'], rules['three-three-distance']);
+        rule_grid(three, one, rules['three-one'], rules['three-one-distance']);
+        rule_grid(three, two, rules['three-two'], rules['three-two-distance']);
+    } else {
+        rule_direct(one, one, rules['one-one'], rules['one-one-distance']);
+        rule_direct(one, two, rules['one-two'], rules['one-two-distance']);
+        rule_direct(one, three, rules['one-three'], rules['one-three-distance']);
+        rule_direct(two, two, rules['two-two'], rules['two-two-distance']);
+        rule_direct(two, three, rules['two-three'], rules['two-three-distance']);
+        rule_direct(two, one, rules['two-one'], rules['two-one-distance']);
+        rule_direct(three, three, rules['three-three'], rules['three-three-distance']);
+        rule_direct(three, one, rules['three-one'], rules['three-one-distance']);
+        rule_direct(three, two, rules['three-two'], rules['three-two-distance']);
+    }
     // 添加滑鼠吸引力
     if (isMouseActive) {
         //isThroughconsoleLog("c");
@@ -383,6 +439,15 @@ self.onmessage = function (e) {
         case 'setThrough':
             // 設置穿透模式
             isThrough = e.data.isThrough;
+            offsetsList = isThrough?[
+                {dx: 0, dy: 0},
+                {dx: -1*canvas.width, dy: -1*canvas.height}, {dx: 0, dy: -1*canvas.height}, {dx: canvas.width, dy: -1*canvas.height},
+                {dx: -1*canvas.width, dy: 0}, {dx: canvas.width, dy: 0},
+                {dx: -1*canvas.width, dy: canvas.height}, {dx: 0, dy: canvas.height}, {dx: canvas.width, dy: canvas.height}
+            ]:[{dx: 0, dy: 0}];
+            break;
+        case 'isGrid':
+            isGrid = e.data.isGrid;
             break;
         case 'updateCanvasSize':
             // 更新畫布大小

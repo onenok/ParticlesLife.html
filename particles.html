@@ -294,6 +294,11 @@
             <p>注意: 更新間隔越短，粒子運動越流暢，但會增加CPU負擔。</p>
         </div>
 
+        <div>
+            <label for="isGrid">使用網格模式?: </label>
+            <input type="checkbox" id="isGrid" checked>
+        </div>
+
         <!-- 在控制面板中添加性能數據顯示 -->
         <div id="performance-data">
             <h3>性能數據</h3>
@@ -615,6 +620,12 @@
 
             // 初始化遊戲函數修改
             function initGame() {
+                performanceData.totalTimeAll = [];
+                performanceData.offsetsLoopTimeAll = [];
+                performanceData.positionUpdateTimeAll = [];
+                performanceData.totalTimeMax = 0;
+                performanceData.offsetsLoopTimeMax = 0;
+                performanceData.positionUpdateTimeMax = 0;
                 const oneCount = parseInt(document.getElementById('one-particles').value);
                 const twoCount = parseInt(document.getElementById('two-particles').value);
                 const threeCount = parseInt(document.getElementById('three-particles').value);
@@ -973,6 +984,10 @@
             const throughCheckbox = document.getElementById("isThrough");
             throughCheckbox.addEventListener('change', () => {
                 worker.postMessage({ type: 'setThrough', isThrough: throughCheckbox.checked });
+            });
+            const isGridCheckbox = document.getElementById("isGrid");
+            isGridCheckbox.addEventListener('change', () => {
+                worker.postMessage({ type: 'isGrid', isGrid: isGridCheckbox.checked });
             });
             
             // 添加按鈕事件監聽器
