@@ -120,8 +120,8 @@ class Grid {
             for (let y = cellY - radiusCells; y <= cellY + radiusCells; y++) {
                 for (let x = cellX - radiusCells; x <= cellX + radiusCells; x++) {
                     // 將這些網格單元中的所有粒子添加到 nearby 數組中
-                    let dy = y < 0 ? 1 : y >= this.height ? -1 : 0;
-                    let dx = x < 0 ? 1 : x >= this.width ? -1 : 0;
+                    let dy = y < 0 ? -1 : y >= this.height ? 1 : 0;
+                    let dx = x < 0 ? -1 : x >= this.width ? 1 : 0;
                     let wrappedY = (y + this.height) % this.height;
                     let wrappedX = (x + this.width) % this.width;
                     // 修改這裡：先獲取網格單元，然後再進行操作
