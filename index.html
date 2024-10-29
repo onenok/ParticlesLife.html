@@ -90,6 +90,14 @@
             -webkit-text-stroke: .375px black;
             -webkit-text-fill-color: #0000FF;
         }
+
+        #grid-reset-time-p {
+            visibility: visible;
+        }
+
+        #get-nearby-time-p {
+            visibility: visible;
+        }
     </style>
 </head>
 
@@ -295,7 +303,7 @@
         </div>
 
         <div>
-            <label for="isGrid">使用網格模式?: </label>
+            <label for="isGrid">使用網格模式: </label>
             <input type="checkbox" id="isGrid" checked>
         </div>
 
@@ -308,10 +316,20 @@
                 <br>平均: <span id="total-time-average"></span> ms
                 <br>最大: <span id="total-time-max"></span> ms
             </p>
+            <p id="grid-reset-time-p">網格重置時間: 
+                <br>當前: <span id="grid-reset-time"></span> ms 
+                <br>平均: <span id="grid-reset-time-average"></span> ms
+                <br>最大: <span id="grid-reset-time-max"></span> ms
+            </p>
+            <p id="get-nearby-time-p">取得附近粒子時間: 
+                <br>當前: <span id="get-nearby-time"></span> ms 
+                <br>平均: <span id="get-nearby-time-average"></span> ms
+                <br>最大: <span id="get-nearby-time-max"></span> ms
+            </p>
             <p>重力影響計算時間: 
-                <br>當前: <span id="offsets-loop-time"></span> ms 
-                <br>平均: <span id="offsets-loop-time-average"></span> ms
-                <br>最大: <span id="offsets-loop-time-max"></span> ms
+                <br>當前: <span id="g-Affect-Calc-time"></span> ms 
+                <br>平均: <span id="g-Affect-Calc-time-average"></span> ms
+                <br>最大: <span id="g-Affect-Calc-time-max"></span> ms
             </p>
             <p>更新位置時間: 
                 <br>當前: <span id="position-update-time"></span> ms 
@@ -621,10 +639,14 @@
             // 初始化遊戲函數修改
             function initGame() {
                 performanceData.totalTimeAll = [];
-                performanceData.offsetsLoopTimeAll = [];
+                performanceData.gridResetTimeAll = [];
+                performanceData.getNearbyTimeAll = [];
+                performanceData.gAffectCalcTimeAll = [];
                 performanceData.positionUpdateTimeAll = [];
                 performanceData.totalTimeMax = 0;
-                performanceData.offsetsLoopTimeMax = 0;
+                performanceData.gridResetTimeMax = 0;
+                performanceData.getNearbyTimeMax = 0;
+                performanceData.gAffectCalcTimeMax = 0;
                 performanceData.positionUpdateTimeMax = 0;
                 const oneCount = parseInt(document.getElementById('one-particles').value);
                 const twoCount = parseInt(document.getElementById('two-particles').value);
@@ -661,18 +683,28 @@
                 totalTime: 0,
                 totalTimeAll: [],
                 totalTimeMax: 0,
-                offsetsLoopTime: 0,
-                offsetsLoopTimeAll: [],
-                offsetsLoopTimeMax: 0,
+                gridResetTime: 0,
+                gridResetTimeAll: [],
+                gridResetTimeMax: 0,
+                getNearbyTime: 0,
+                getNearbyTimeAll: [],
+                getNearbyTimeMax: 0,
+                gAffectCalcTime: 0,
+                gAffectCalcTimeAll: [],
+                gAffectCalcTimeMax: 0,
                 positionUpdateTime: 0,
                 positionUpdateTimeAll: [],
                 positionUpdateTimeMax: 0
             };
             let totalTimeAverageUpdateMs = 1000;
-            let offsetsLoopTimeAverageUpdateMs = 1000;
+            let gridResetTimeAverageUpdateMs = 1000;
+            let getNearbyTimeAverageUpdateMs = 1000;
+            let gAffectCalcTimeAverageUpdateMs = 1000;
             let positionUpdateTimeAverageUpdateMs = 1000;
             let totalTimeAverageUpdateLastTime = 0;
-            let offsetsLoopTimeAverageUpdateLastTime = 0;
+            let gridResetTimeAverageUpdateLastTime = 0;
+            let getNearbyTimeAverageUpdateLastTime = 0;
+            let gAffectCalcTimeAverageUpdateLastTime = 0;
             let positionUpdateTimeAverageUpdateLastTime = 0;
             let gridData = {
                 cellSize: 0,
@@ -687,14 +719,19 @@
                 if (performanceData.totalTime > performanceData.totalTimeMax) {
                     performanceData.totalTimeMax = performanceData.totalTime;
                 }
-                if (performanceData.offsetsLoopTime > performanceData.offsetsLoopTimeMax){
-                    performanceData.offsetsLoopTimeMax = performanceData.offsetsLoopTime;
+                if (performanceData.gridResetTime > performanceData.gridResetTimeMax){
+                    performanceData.gridResetTimeMax = performanceData.gridResetTime;
+                }
+                if (performanceData.gAffectCalcTime > performanceData.gAffectCalcTimeMax){
+                    performanceData.gAffectCalcTimeMax = performanceData.gAffectCalcTime;
                 }
                 if (performanceData.positionUpdateTime > performanceData.positionUpdateTimeMax){
                     performanceData.positionUpdateTimeMax = performanceData.positionUpdateTime;
                 }
                 performanceData.totalTimeAll.push(performanceData.totalTime);
-                performanceData.offsetsLoopTimeAll.push(performanceData.offsetsLoopTime);
+                performanceData.gridResetTimeAll.push(performanceData.gridResetTime);
+                performanceData.getNearbyTimeAll.push(performanceData.getNearbyTime);
+                performanceData.gAffectCalcTimeAll.push(performanceData.gAffectCalcTime);
                 performanceData.positionUpdateTimeAll.push(performanceData.positionUpdateTime);
                 // 更新性能數據顯示
                 document.getElementById('total-time').textContent = performanceData.totalTime.toFixed(2);
@@ -705,13 +742,29 @@
                 }
                 document.getElementById('total-time-max').textContent = performanceData.totalTimeMax.toFixed(2);
                 
-                document.getElementById('offsets-loop-time').textContent = performanceData.offsetsLoopTime.toFixed(2);
-                if (performance.now() - offsetsLoopTimeAverageUpdateLastTime >= offsetsLoopTimeAverageUpdateMs) {
-                    document.getElementById('offsets-loop-time-average').textContent = (performanceData.offsetsLoopTimeAll.reduce((a, b) => a + b, 0) / performanceData.offsetsLoopTimeAll.length).toFixed(2);
-                    performanceData.offsetsLoopTimeAll = [];
-                    offsetsLoopTimeAverageUpdateLastTime = performance.now();
+                document.getElementById('grid-reset-time').textContent = performanceData.gridResetTime.toFixed(2);  
+                if (performance.now() - gridResetTimeAverageUpdateLastTime >= gridResetTimeAverageUpdateMs) {
+                    document.getElementById('grid-reset-time-average').textContent = (performanceData.gridResetTimeAll.reduce((a, b) => a + b, 0) / performanceData.gridResetTimeAll.length).toFixed(2);
+                    performanceData.gridResetTimeAll = [];
+                    gridResetTimeAverageUpdateLastTime = performance.now();
                 }
-                document.getElementById('offsets-loop-time-max').textContent = performanceData.offsetsLoopTimeMax.toFixed(2);
+                document.getElementById('grid-reset-time-max').textContent = performanceData.gridResetTimeMax.toFixed(2);
+
+                document.getElementById('get-nearby-time').textContent = performanceData.getNearbyTime.toFixed(2);
+                if (performance.now() - getNearbyTimeAverageUpdateLastTime >= getNearbyTimeAverageUpdateMs) {
+                    document.getElementById('get-nearby-time-average').textContent = (performanceData.getNearbyTimeAll.reduce((a, b) => a + b, 0) / performanceData.getNearbyTimeAll.length).toFixed(2);
+                    performanceData.getNearbyTimeAll = [];
+                    getNearbyTimeAverageUpdateLastTime = performance.now();
+                }
+                document.getElementById('get-nearby-time-max').textContent = performanceData.getNearbyTimeMax.toFixed(2);
+                
+                document.getElementById('g-Affect-Calc-time').textContent = performanceData.gAffectCalcTime.toFixed(2);
+                if (performance.now() - gAffectCalcTimeAverageUpdateLastTime >= gAffectCalcTimeAverageUpdateMs) {
+                    document.getElementById('g-Affect-Calc-time-average').textContent = (performanceData.gAffectCalcTimeAll.reduce((a, b) => a + b, 0) / performanceData.gAffectCalcTimeAll.length).toFixed(2);
+                    performanceData.gAffectCalcTimeAll = [];
+                    gAffectCalcTimeAverageUpdateLastTime = performance.now();
+                }
+                document.getElementById('g-Affect-Calc-time-max').textContent = performanceData.gAffectCalcTimeMax.toFixed(2);
                 
                 document.getElementById('position-update-time').textContent = performanceData.positionUpdateTime.toFixed(2);
                 if (performance.now() - positionUpdateTimeAverageUpdateLastTime >= positionUpdateTimeAverageUpdateMs) {
@@ -766,7 +819,7 @@
                     particles = e.data.particles;
                     gridData = e.data.gridData;
                     performanceData.totalTime = e.data.performanceData.totalTime;
-                    performanceData.offsetsLoopTime = e.data.performanceData.offsetsLoopTime;
+                    performanceData.gAffectCalcTime = e.data.performanceData.gAffectCalcTime;
                     performanceData.positionUpdateTime = e.data.performanceData.positionUpdateTime;
                     nearbyParticlesOne = e.data.nearbyParticlesOne;
                     nearbyParticlesTwo = e.data.nearbyParticlesTwo;
@@ -988,6 +1041,8 @@
             const isGridCheckbox = document.getElementById("isGrid");
             isGridCheckbox.addEventListener('change', () => {
                 worker.postMessage({ type: 'isGrid', isGrid: isGridCheckbox.checked });
+                document.getElementById('grid-reset-time-p').style.visibility = isGridCheckbox.checked ? 'visible' : 'hidden';
+                document.getElementById('get-nearby-time-p').style.visibility = isGridCheckbox.checked ? 'visible' : 'hidden';
             });
             
             // 添加按鈕事件監聽器
