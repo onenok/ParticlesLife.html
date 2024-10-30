@@ -24,7 +24,6 @@
             position: fixed;
             top: 0;
             right: -300px;
-            /* 初始位置在右側屏幕外 */
             width: 300px;
             height: 100vh;
             background: rgba(255, 255, 255, 0.9);
@@ -41,7 +40,6 @@
 
         #controls.visible {
             right: 0;
-            /* 向左移動以顯示 */
         }
 
         #toggle-controls {
@@ -52,7 +50,6 @@
             position: fixed;
             top: 10px;
             right: 10px;
-            /* 改為右側 */
             z-index: 1001;
             background: rgba(255, 255, 255, 0.3);
             border: none;
@@ -73,9 +70,8 @@
             border-color: rgb(63, 63, 63);
         }*/
 
-        /* 修改文字樣式，使用 -webkit-text-stroke 來創建輪廓 */
+        /* 修改文字樣式，使用 -webkit-text-stroke 創建輪廓 */
 
-        /* 為每種顏色的區塊設置特定樣式 */
         .one {
             -webkit-text-stroke: .375px black;
             -webkit-text-fill-color: #FF0000;
@@ -104,8 +100,6 @@
 <body>
     <button id="toggle-controls">☰</button>
     <div id="controls">
-        <!-- 在 HTML 中，為需要隨機化的滑塊添加 'randomizable' 類 -->
-        <!-- 一號 -->
         <div style="margin-top: 0;">
             <a href="https://github.com/onenok/ParticlesLife.html/issues">
                 <svg height="32" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="32" data-view-component="true" class="">
@@ -114,6 +108,8 @@
                 Github Issues
             </a>
         </div>
+        <!-- 在 HTML 中，為需要隨機化的滑塊添加 'randomizable' 類 -->
+        <!-- 一號 -->
         <div>
             <div>
                 <label for="one-one"><span class="one">一號->一號:</span></label>
