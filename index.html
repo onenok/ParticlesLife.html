@@ -92,11 +92,11 @@
         }
 
         #grid-reset-time-p {
-            visibility: visible;
+            display: block;
         }
 
         #get-nearby-time-p {
-            visibility: visible;
+            display: block;
         }
     </style>
 </head>
@@ -1043,8 +1043,8 @@
             const isGridCheckbox = document.getElementById("isGrid");
             isGridCheckbox.addEventListener('change', () => {
                 worker.postMessage({ type: 'isGrid', isGrid: isGridCheckbox.checked });
-                document.getElementById('grid-reset-time-p').style.visibility = isGridCheckbox.checked ? 'visible' : 'hidden';
-                document.getElementById('get-nearby-time-p').style.visibility = isGridCheckbox.checked ? 'visible' : 'hidden';
+                document.getElementById('grid-reset-time-p').style.display = isGridCheckbox.checked ? 'block' : 'none';
+                document.getElementById('get-nearby-time-p').style.display = isGridCheckbox.checked ? 'block' : 'none';
             });
             
             // 添加按鈕事件監聽器
