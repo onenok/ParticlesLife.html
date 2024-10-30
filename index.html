@@ -87,12 +87,253 @@
             -webkit-text-fill-color: #0000FF;
         }
 
-        #grid-reset-time-p {
-            display: block;
+        /* 按鈕組樣式 */
+        .button-group {
+            margin: 20px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
         }
 
-        #get-nearby-time-p {
-            display: block;
+        .control-section {
+            margin-bottom: 20px;
+        }
+
+        h3 {
+            color: #272727;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .styled-button {
+            background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+            border: none;
+            padding: 10px 20px;
+            color: #ffffff;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .styled-button:hover {
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .styled-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 性能數據顯示區域樣式 */
+        #performance-data {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #performance-data h3 {
+            color: #fff;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        #performance-data p {
+            color: #ffffff;
+            margin: 10px 0;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+
+        #performance-data span {
+            color: #5dff62;
+            font-weight: bold;
+        }
+
+        /* 控制元素樣式 */
+        input[type="range"] {
+            width: 200px;
+            height: 5px;
+            border-radius: 5px;
+            background: #4d4d4d;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        input[type="range"]:hover {
+            opacity: 1;
+            background: #6e6e6e;
+        }
+
+        input[type="number"] {
+            width: 70px;
+            padding: 2px 5px;
+            border: 1px solid #4d4d4d;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #ffffff;
+            font-size: 13px;
+            height: 20px;
+            box-sizing: border-box;
+            margin-top: 5px;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            border-color: #6e6e6e;
+            outline: none;
+            box-shadow: 0 0 5px rgba(110, 110, 110, 0.5);
+        }
+
+        select {
+            padding: 2px 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #4d4d4d;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 13px;
+            height: 20px;
+        }
+
+        /* 標籤樣式 */
+        label {
+            color: #d0d0d0;
+            margin-right: 10px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 複選框樣式 */
+        input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+        }
+
+        /* 一般標籤和文字的默認顏色 */
+        label {
+            color: #2e2e2e;
+            margin-right: 10px;
+        }
+
+        /* 一般段落文字 */
+        p {
+            color: #2e2e2e;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 有特定背景的元素保持白色文字 */
+        #performance-data p {
+            color: #ffffff;
+        }
+
+        /* 保持按鈕文字為白色，因為按鈕有深色背景 */
+        .styled-button {
+            color: #d0d0d0;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 性能數據區域保持白色文字 */
+        #performance-data h3,
+        #performance-data p {
+            color: #ffffff;
+        }
+
+        /* 性能數據中的數值保持綠色 */
+        #performance-data span {
+            color: #5dff62;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 切換開關容器 */
+        .toggle-container {
+            margin: 10px 0;
+            display: flex;
+        }
+
+        /* 標籤樣式 */
+        .toggle-label {
+            width: fit-content;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        /* 切換開關外觀 */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        /* 隱藏原始複選框，但保持在滑塊位置 */
+        .toggle-switch input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            z-index: 1; /* 確保複選框在最上層 */
+            margin: 0; /* 移除默認邊距 */
+        }
+
+        /* 滑塊樣式 */
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #4d4d4d;
+            transition: .3s;
+            border-radius: 24px;
+            pointer-events: none; /* 確保滑塊不會干擾點擊事件 */
+        }
+
+        /* 滑塊的圓形按鈕 */
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: #d0d0d0;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        /* 選中狀態的樣式 */
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+
+        /* 滑塊懸停效果 */
+        .slider:hover {
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+        }
+
+        /* 選中狀態下圓形按鈕的位置 */
+        input:checked + .slider:before {
+            transform: translateX(26px);
+            background-color: #ffffff;
         }
     </style>
 </head>
@@ -100,14 +341,6 @@
 <body>
     <button id="toggle-controls">☰</button>
     <div id="controls">
-        <div style="margin-top: 0;">
-            <a href="https://github.com/onenok/ParticlesLife.html/issues">
-                <svg height="32" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="32" data-view-component="true" class="">
-                <path d="M12.5.75C6.146.75 1 5.896 1 12.25c0 5.089 3.292 9.387 7.863 10.91.575.101.79-.244.79-.546 0-.273-.014-1.178-.014-2.142-2.889.532-3.636-.704-3.866-1.35-.13-.331-.69-1.352-1.18-1.625-.402-.216-.977-.748-.014-.762.906-.014 1.553.834 1.769 1.179 1.035 1.74 2.688 1.25 3.349.948.1-.747.402-1.25.733-1.538-2.559-.287-5.232-1.279-5.232-5.678 0-1.25.445-2.285 1.178-3.09-.115-.288-.517-1.467.115-3.048 0 0 .963-.302 3.163 1.179.92-.259 1.897-.388 2.875-.388.977 0 1.955.13 2.875.388 2.2-1.495 3.162-1.179 3.162-1.179.633 1.581.23 2.76.115 3.048.733.805 1.179 1.825 1.179 3.09 0 4.413-2.688 5.39-5.247 5.678.417.36.776 1.05.776 2.128 0 1.538-.014 2.774-.014 3.162 0 .302.216.662.79.547C20.709 21.637 24 17.324 24 12.25 24 5.896 18.854.75 12.5.75Z"></path>
-                </svg>
-                <span>GitHub Issues</span>
-            </a>
-        </div>
         <!-- 在 HTML 中，為需要隨機化的滑塊添加 'randomizable' 類 -->
         <!-- 一號 -->
         <div>
@@ -213,30 +446,29 @@
             </div>
         </div>
 
-        <div>
-            <!-- 添加隨機化按鈕 -->
-            <div>
-                <button id="randomize-button">隨機化所有值</button>
+        <!-- 將按鈕組重組織並添加樣式 -->
+        <div class="button-group">
+            <!-- 基本操作按鈕 -->
+            <div class="control-section">
+                <h3>🎮 基本操作</h3>
+                <div class="button-container">
+                    <button id="randomize-button" class="styled-button">🎲 隨機化所有值</button>
+                    <button id="restart-button" class="styled-button">🔄 重新開始遊戲</button>
+                    <button id="randomize-and-restart-button" class="styled-button">🎯 隨機化並重新開始</button>
+                </div>
             </div>
 
-            <!-- 添加重新開始按鈕 -->
-            <div>
-                <button id="restart-button">重新開始遊戲</button>
+            <!-- 規則導入導出按鈕 -->
+            <div class="control-section">
+                <h3>💾 規則管理</h3>
+                <div class="button-container">
+                    <button id="export-rules" class="styled-button">📤 匯出規則</button>
+                    <button id="import-rules" class="styled-button">📥 導入規則</button>
+                    <button id="import-rules-and-restart" class="styled-button">📋 導入規則並重新開始</button>
+                </div>
             </div>
-
-            <!-- 添加新的隨機化並重新開始按鈕 -->
-            <div>
-                <button id="randomize-and-restart-button">隨機化並重新開始</button>
-            </div>
+            <input type="file" id="import-file" style="display: none;">
         </div>
-
-        <!-- 在控制面板中添加匯出和導入按鈕 -->
-        <div>
-            <button id="export-rules">匯出規則</button>
-            <button id="import-rules">導入規則</button>
-            <button id="import-rules-and-restart">導入規則並重新開始</button>
-        </div>
-        <input type="file" id="import-file" style="display: none;">
 
         <div>
             <div class="one">
@@ -256,9 +488,12 @@
             </div>
         </div>
 
-        <div>
-            <label for="isThrough">是否穿透: </label>
-            <input type="checkbox" id="isThrough">
+        <div class="toggle-container">
+            <label for="isThrough" class="toggle-label">是否穿透</label>
+            <div class="toggle-switch">
+                <input type="checkbox" id="isThrough">
+                <span class="slider"></span>
+            </div>
         </div>
 
         <!-- 添加滑鼠吸引力滑塊 -->
@@ -306,11 +541,6 @@
             <p>注意: 更新間隔越短，粒子運動越流暢，但會增加CPU負擔。</p>
         </div>
 
-        <div>
-            <label for="isGrid">使用網格模式: </label>
-            <input type="checkbox" id="isGrid" checked>
-        </div>
-
         <!-- 在控制面板中添加性能數據顯示 -->
         <div id="performance-data">
             <h3>性能數據</h3>
@@ -320,12 +550,12 @@
                 <br>平均: <span id="total-time-average"></span> ms
                 <br>最大: <span id="total-time-max"></span> ms
             </p>
-            <p id="grid-reset-time-p">網格重置時間: 
+            <p>網格重置時間: 
                 <br>當前: <span id="grid-reset-time"></span> ms 
                 <br>平均: <span id="grid-reset-time-average"></span> ms
                 <br>最大: <span id="grid-reset-time-max"></span> ms
             </p>
-            <p id="get-nearby-time-p">取得附近粒子時間: 
+            <p>取得附近粒子時間: 
                 <br>當前: <span id="get-nearby-time"></span> ms 
                 <br>平均: <span id="get-nearby-time-average"></span> ms
                 <br>最大: <span id="get-nearby-time-max"></span> ms
@@ -343,10 +573,14 @@
         </div>
 
         <!-- 在控制面板中添加新的控制元素 -->
-        <div>
-            <div>
-                <label for="showGrid">顯示網格: </label>
-                <input type="checkbox" id="showGrid">
+        <div class="grid-controls">
+            <h3>🔲 網格設置</h3>
+            <div class="toggle-container">
+                <label for="showGrid" class="toggle-label">顯示網格</label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="showGrid">
+                    <span class="slider"></span>
+                </div>
             </div>
             <div>
                 <p>當前所選單元格: <span id="selected-cell"></span></p>
@@ -392,6 +626,15 @@
                 <p>範圍內的三號粒子數量: <span id="nearbyParticlesThreeNumber"></span></p>
             </div>
         </div>
+        <div>
+            <p style="font-size: 1.2em; font-weight: bold; color: #ff6b6b; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); margin: 15px 0;">💬 交流與反饋</p>
+            <a href="https://github.com/onenok/ParticlesLife.html/issues" style="text-decoration: none; display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 6px; background: #24292e; color: white; width: fit-content; transition: background 0.2s;">
+                <svg height="24" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="24" fill="currentColor">
+                    <path d="M12.5.75C6.146.75 1 5.896 1 12.25c0 5.089 3.292 9.387 7.863 10.91.575.101.79-.244.79-.546 0-.273-.014-1.178-.014-2.142-2.889.532-3.636-.704-3.866-1.35-.13-.331-.69-1.352-1.18-1.625-.402-.216-.977-.748-.014-.762.906-.014 1.553.834 1.769 1.179 1.035 1.74 2.688 1.25 3.349.948.1-.747.402-1.25.733-1.538-2.559-.287-5.232-1.279-5.232-5.678 0-1.25.445-2.285 1.178-3.09-.115-.288-.517-1.467.115-3.048 0 0 .963-.302 3.163 1.179.92-.259 1.897-.388 2.875-.388.977 0 1.955.13 2.875.388 2.2-1.495 3.162-1.179 3.162-1.179.633 1.581.23 2.76.115 3.048.733.805 1.179 1.825 1.179 3.09 0 4.413-2.688 5.39-5.247 5.678.417.36.776 1.05.776 2.128 0 1.538-.014 2.774-.014 3.162 0 .302.216.662.79.547C20.709 21.637 24 17.324 24 12.25 24 5.896 18.854.75 12.5.75Z"></path>
+                </svg>
+                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">GitHub Issues</span>
+            </a>
+        </div>
     </div>
     <canvas id="board2d"></canvas>
 
@@ -420,8 +663,8 @@
             function updateCanvasSize() {
                 const controlPanel = document.getElementById('controls');
                 const isPanelVisible = controlPanel.classList.contains('visible');
-                const width = document.documentElement.clientWidth - (isPanelVisible ? 300 : 0) - 2;
-                const height = document.documentElement.clientHeight - 2;
+                const width = document.documentElement.clientWidth - (isPanelVisible ? 300 : 0);
+                const height = document.documentElement.clientHeight;
 
                 canvas2d.width = width;
                 canvas2d.height = height;
@@ -859,7 +1102,7 @@
                 worker.postMessage({ type: 'updateRules', rules });
             }
 
-            // 為所有滑塊和數字輸入框添加事件監聽器
+            // 為所滑塊和數字輸入框添加事件監聽器
             document.querySelectorAll('input[type="range"]').forEach(slider => {
                 const numberInput = document.getElementById(slider.id + '-number');
                 slider.addEventListener('input', () => {
@@ -1023,7 +1266,7 @@
                 });
             }
 
-            // 為顏色選器添加事件監聽器
+            // 為顏色選擇器添加事件監聽器
             document.getElementById('one-color').addEventListener('input', updateColors);
             document.getElementById('two-color').addEventListener('input', updateColors);
             document.getElementById('three-color').addEventListener('input', updateColors);
@@ -1043,12 +1286,6 @@
             const throughCheckbox = document.getElementById("isThrough");
             throughCheckbox.addEventListener('change', () => {
                 worker.postMessage({ type: 'setThrough', isThrough: throughCheckbox.checked });
-            });
-            const isGridCheckbox = document.getElementById("isGrid");
-            isGridCheckbox.addEventListener('change', () => {
-                worker.postMessage({ type: 'isGrid', isGrid: isGridCheckbox.checked });
-                document.getElementById('grid-reset-time-p').style.display = isGridCheckbox.checked ? 'block' : 'none';
-                document.getElementById('get-nearby-time-p').style.display = isGridCheckbox.checked ? 'block' : 'none';
             });
             
             // 添加按鈕事件監聽器
@@ -1224,6 +1461,12 @@
                         });
                     } else {
                         document.getElementById('selectedParticleId').textContent = '無';
+                        selectedParticleId = null;
+                        selectedParticleType = null;
+                        worker.postMessage({ 
+                            type: 'updateSelectedParticle', 
+                            particleId: null,
+                        });
                         nearbyParticles = [];
                     }
                 }
