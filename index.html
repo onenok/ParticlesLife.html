@@ -226,7 +226,6 @@
         /* 一般標籤和文字的默認顏色 */
         label {
             color: #2e2e2e;
-            margin-right: 10px;
         }
 
         /* 一般段落文字 */
@@ -335,6 +334,21 @@
             transform: translateX(26px);
             background-color: #ffffff;
         }
+
+        /* 粒子規則容器（新增樣式） */
+        .rules-container {
+            background: rgba(0, 0, 0, 0.2); 
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+        .rules-container > div {
+            background: rgba(0, 0, 0, 0.1); 
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 
@@ -343,106 +357,149 @@
     <div id="controls">
         <!-- 在 HTML 中，為需要隨機化的滑塊添加 'randomizable' 類 -->
         <!-- 一號 -->
-        <div>
+        <div class="rules-container">
+            <h3>📋 粒子規則</h3>
             <div>
-                <label for="one-one"><span class="one">一號->一號:</span></label>
-                <input type="range" id="one-one" class="randomizable rules" min="-1" max="1" step="0.1" value="0.4">
-                <input type="number" id="one-one-number" min="-1" max="1" step="0.1" value="0.4">
+                <div>
+                    <label for="one-one"><span class="one">一號->一號:</span></label>
+                    <input type="range" id="one-one" class="randomizable rules" min="-1" max="1" step="0.1" value="0.4">
+                    <input type="number" id="one-one-number" min="-1" max="1" step="0.1" value="0.4">
+                </div>
+                <div>
+                    <label for="one-one-distance"><span class="one">一號->一號距離:</span></label>
+                    <input type="range" id="one-one-distance" class="randomizable rules" min="10" max="300" step="10" value="150">
+                    <input type="number" id="one-one-distance-number" min="10" max="300" step="10" value="150">
+                </div>
+                <div>
+                    <label for="one-two"><span class="one">一號-></span><span class="two">二號:</span></label>
+                    <input type="range" id="one-two" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.6">
+                    <input type="number" id="one-two-number" min="-1" max="1" step="0.1" value="-0.6">
+                </div>
+                <div>
+                    <label for="one-two-distance"><span class="one">一號-></span><span class="two">二號距離:</span></label>
+                    <input type="range" id="one-two-distance" class="randomizable rules" min="10" max="300" step="10" value="12">
+                    <input type="number" id="one-two-distance-number" min="10" max="300" step="10" value="12">
+                </div>
+                <div>
+                    <label for="one-three"><span class="one">一號-></span><span class="three">三號:</span></label>
+                    <input type="range" id="one-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
+                    <input type="number" id="one-three-number" min="-1" max="1" step="0.1" value="0.5">
+                </div>
+                <div>
+                    <label for="one-three-distance"><span class="one">一號-></span><span class="three">三號距離:</span></label>
+                    <input type="range" id="one-three-distance" class="randomizable rules" min="10" max="300" step="10" value="10">
+                    <input type="number" id="one-three-distance-number" min="10" max="300" step="10" value="10">
+                </div>
+            </div>
+            <!-- 二號 -->
+            <div>
+                <div>
+                    <label for="two-two"><span class="two">二號->二號:</span></label>
+                    <input type="range" id="two-two" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
+                    <input type="number" id="two-two-number" min="-1" max="1" step="0.1" value="0.5">
+                </div>
+                <div>
+                    <label for="two-two-distance"><span class="two">二號->二號距離:</span></label>
+                    <input type="range" id="two-two-distance" class="randomizable rules" min="10" max="300" step="10" value="100">
+                    <input type="number" id="two-two-distance-number" min="10" max="300" step="10" value="100">
+                </div>
+                <div>
+                    <label for="two-three"><span class="two">二號-></span><span class="three">三號:</span></label>
+                    <input type="range" id="two-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
+                    <input type="number" id="two-three-number" min="-1" max="1" step="0.1" value="0.5">
+                </div>
+                <div>
+                    <label for="two-three-distance"><span class="two">二號-></span><span class="three">三號距離:</span></label>
+                    <input type="range" id="two-three-distance" class="randomizable rules" min="10" max="300" step="10"
+                        value="100">
+                    <input type="number" id="two-three-distance-number" min="10" max="300" step="10" value="100">
+                </div>
+                <div>
+                    <label for="two-one"><span class="two">二號-></span><span class="one">一號:</span></label>
+                    <input type="range" id="two-one" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
+                    <input type="number" id="two-one-number" min="-1" max="1" step="0.1" value="0.5">
+                </div>
+                <div>
+                    <label for="two-one-distance"><span class="two">二號-></span><span class="one">一號距離:</span></label>
+                    <input type="range" id="two-one-distance" class="randomizable rules" min="10" max="300" step="10" value="200">
+                    <input type="number" id="two-one-distance-number" min="10" max="300" step="10" value="200">
+                </div>
+            </div>
+            <!-- 三號 -->
+            <div>
+                <div>
+                    <label for="three-three"><span class="three">三號->三號:</span></label>
+                    <input type="range" id="three-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.4">
+                    <input type="number" id="three-three-number" min="-1" max="1" step="0.1" value="0.4">
+                </div>
+                <div>
+                    <label for="three-three-distance"><span class="three">三號->三號距離:</span></label>
+                    <input type="range" id="three-three-distance" class="randomizable rules" min="10" max="300" step="10"
+                        value="130">
+                    <input type="number" id="three-three-distance-number" min="10" max="300" step="10" value="130">
+                </div>
+                <div>
+                    <label for="three-one"><span class="three">三號-></span><span class="one">一號:</span></label>
+                    <input type="range" id="three-one" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.5">
+                    <input type="number" id="three-one-number" min="-1" max="1" step="0.1" value="-0.5">
+                </div>
+                <div>
+                    <label for="three-one-distance"><span class="three">三號-></span><span class="one">一號距離:</span></label>
+                    <input type="range" id="three-one-distance" class="randomizable rules" min="10" max="300" step="10"
+                        value="100">
+                    <input type="number" id="three-one-distance-number" min="10" max="300" step="10" value="100">
+                </div>
+                <div>
+                    <label for="three-two"><span class="three">三號-></span><span class="two">二號:</span></label>
+                    <input type="range" id="three-two" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.5">
+                    <input type="number" id="three-two-number" min="-1" max="1" step="0.1" value="-0.5">
+                </div>
+                <div>
+                    <label for="three-two-distance"><span class="three">三號-></span><span class="two">二號距離:</span></label>
+                    <input type="range" id="three-two-distance" class="randomizable rules" min="10" max="300" step="10"
+                        value="10">
+                    <input type="number" id="three-two-distance-number" min="10" max="300" step="10" value="10">
+                </div>
             </div>
             <div>
-                <label for="one-one-distance"><span class="one">一號->一號距離:</span></label>
-                <input type="range" id="one-one-distance" class="randomizable rules" min="10" max="300" step="10" value="150">
-                <input type="number" id="one-one-distance-number" min="10" max="300" step="10" value="150">
+                <div class="one">
+                    <label for="one-particles">一號粒子數量:</label>
+                    <input type="range" id="one-particles" class="rules" min="10" max="500" step="10" value="250">
+                    <input type="number" id="one-particles-number" min="10" max="500" step="10" value="250">
+                </div>
+                <div class="two">
+                    <label for="two-particles">二號粒子數量:</label>
+                    <input type="range" id="two-particles" class="rules" min="10" max="500" step="10" value="250">
+                    <input type="number" id="two-particles-number" min="10" max="500" step="10" value="250">
+                </div>
+                <div class="three">
+                    <label for="three-particles">三號粒子數量:</label>
+                    <input type="range" id="three-particles" class="rules" min="10" max="500" step="10" value="250">
+                    <input type="number" id="three-particles-number" min="10" max="500" step="10" value="250">
+                </div>
             </div>
+            
             <div>
-                <label for="one-two"><span class="one">一號-></span><span class="two">二號:</span></label>
-                <input type="range" id="one-two" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.6">
-                <input type="number" id="one-two-number" min="-1" max="1" step="0.1" value="-0.6">
-            </div>
-            <div>
-                <label for="one-two-distance"><span class="one">一號-></span><span class="two">二號距離:</span></label>
-                <input type="range" id="one-two-distance" class="randomizable rules" min="10" max="300" step="10" value="12">
-                <input type="number" id="one-two-distance-number" min="10" max="300" step="10" value="12">
-            </div>
-            <div>
-                <label for="one-three"><span class="one">一號-></span><span class="three">三號:</span></label>
-                <input type="range" id="one-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
-                <input type="number" id="one-three-number" min="-1" max="1" step="0.1" value="0.5">
-            </div>
-            <div>
-                <label for="one-three-distance"><span class="one">一號-></span><span class="three">三號距離:</span></label>
-                <input type="range" id="one-three-distance" class="randomizable rules" min="10" max="300" step="10" value="10">
-                <input type="number" id="one-three-distance-number" min="10" max="300" step="10" value="10">
+                <div class="one">
+                    <label for="one-color">一號粒子顏色:</label>
+                    <input type="color" id="one-color" value="#FF0000">
+                </div>
+                <div class="two">
+                    <label for="two-color">二號粒子顏色:</label>
+                    <input type="color" id="two-color" value="#00FF00">
+                </div>
+                <div class="three">
+                    <label for="three-color">三號粒子顏色:</label>
+                    <input type="color" id="three-color" value="#0000FF">
+                </div>
             </div>
         </div>
-        <!-- 二號 -->
-        <div>
-            <div>
-                <label for="two-two"><span class="two">二號->二號:</span></label>
-                <input type="range" id="two-two" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
-                <input type="number" id="two-two-number" min="-1" max="1" step="0.1" value="0.5">
-            </div>
-            <div>
-                <label for="two-two-distance"><span class="two">二號->二號距離:</span></label>
-                <input type="range" id="two-two-distance" class="randomizable rules" min="10" max="300" step="10" value="100">
-                <input type="number" id="two-two-distance-number" min="10" max="300" step="10" value="100">
-            </div>
-            <div>
-                <label for="two-three"><span class="two">二號-></span><span class="three">三號:</span></label>
-                <input type="range" id="two-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
-                <input type="number" id="two-three-number" min="-1" max="1" step="0.1" value="0.5">
-            </div>
-            <div>
-                <label for="two-three-distance"><span class="two">二號-></span><span class="three">三號距離:</span></label>
-                <input type="range" id="two-three-distance" class="randomizable rules" min="10" max="300" step="10"
-                    value="100">
-                <input type="number" id="two-three-distance-number" min="10" max="300" step="10" value="100">
-            </div>
-            <div>
-                <label for="two-one"><span class="two">二號-></span><span class="one">一號:</span></label>
-                <input type="range" id="two-one" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
-                <input type="number" id="two-one-number" min="-1" max="1" step="0.1" value="0.5">
-            </div>
-            <div>
-                <label for="two-one-distance"><span class="two">二號-></span><span class="one">一號距離:</span></label>
-                <input type="range" id="two-one-distance" class="randomizable rules" min="10" max="300" step="10" value="200">
-                <input type="number" id="two-one-distance-number" min="10" max="300" step="10" value="200">
-            </div>
-        </div>
-        <!-- 三號 -->
-        <div>
-            <div>
-                <label for="three-three"><span class="three">三號->三號:</span></label>
-                <input type="range" id="three-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.4">
-                <input type="number" id="three-three-number" min="-1" max="1" step="0.1" value="0.4">
-            </div>
-            <div>
-                <label for="three-three-distance"><span class="three">三號->三號距離:</span></label>
-                <input type="range" id="three-three-distance" class="randomizable rules" min="10" max="300" step="10"
-                    value="130">
-                <input type="number" id="three-three-distance-number" min="10" max="300" step="10" value="130">
-            </div>
-            <div>
-                <label for="three-one"><span class="three">三號-></span><span class="one">一號:</span></label>
-                <input type="range" id="three-one" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.5">
-                <input type="number" id="three-one-number" min="-1" max="1" step="0.1" value="-0.5">
-            </div>
-            <div>
-                <label for="three-one-distance"><span class="three">三號-></span><span class="one">一號距離:</span></label>
-                <input type="range" id="three-one-distance" class="randomizable rules" min="10" max="300" step="10"
-                    value="100">
-                <input type="number" id="three-one-distance-number" min="10" max="300" step="10" value="100">
-            </div>
-            <div>
-                <label for="three-two"><span class="three">三號-></span><span class="two">二號:</span></label>
-                <input type="range" id="three-two" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.5">
-                <input type="number" id="three-two-number" min="-1" max="1" step="0.1" value="-0.5">
-            </div>
-            <div>
-                <label for="three-two-distance"><span class="three">三號-></span><span class="two">二號距離:</span></label>
-                <input type="range" id="three-two-distance" class="randomizable rules" min="10" max="300" step="10"
-                    value="10">
-                <input type="number" id="three-two-distance-number" min="10" max="300" step="10" value="10">
+
+        <div class="toggle-container">
+            <label for="isThrough" class="toggle-label">🔁 無邊界模式</label>
+            <div class="toggle-switch">
+                <input type="checkbox" id="isThrough">
+                <span class="slider"></span>
             </div>
         </div>
 
@@ -470,53 +527,11 @@
             <input type="file" id="import-file" style="display: none;">
         </div>
 
-        <div>
-            <div class="one">
-                <label for="one-particles">一號粒子數量:</label>
-                <input type="range" id="one-particles" class="rules" min="10" max="500" step="10" value="250">
-                <input type="number" id="one-particles-number" min="10" max="500" step="10" value="250">
-            </div>
-            <div class="two">
-                <label for="two-particles">二號粒子數量:</label>
-                <input type="range" id="two-particles" class="rules" min="10" max="500" step="10" value="250">
-                <input type="number" id="two-particles-number" min="10" max="500" step="10" value="250">
-            </div>
-            <div class="three">
-                <label for="three-particles">三號粒子數量:</label>
-                <input type="range" id="three-particles" class="rules" min="10" max="500" step="10" value="250">
-                <input type="number" id="three-particles-number" min="10" max="500" step="10" value="250">
-            </div>
-        </div>
-
-        <div class="toggle-container">
-            <label for="isThrough" class="toggle-label">是否穿透</label>
-            <div class="toggle-switch">
-                <input type="checkbox" id="isThrough">
-                <span class="slider"></span>
-            </div>
-        </div>
-
         <!-- 添加滑鼠吸引力滑塊 -->
         <div>
             <label for="mouse-force">滑鼠吸引力:</label>
             <input type="range" id="mouse-force" min="0" max="10" step="0.1" value="5">
             <input type="number" id="mouse-force-number" min="0" max="10" step="0.1" value="5">
-        </div>
-
-        <!-- 添加顏色選擇器 -->
-        <div>
-            <div class="one">
-                <label for="one-color">一號粒子顏色:</label>
-                <input type="color" id="one-color" value="#FF0000">
-            </div>
-            <div class="two">
-                <label for="two-color">二號粒子顏色:</label>
-                <input type="color" id="two-color" value="#00FF00">
-            </div>
-            <div class="three">
-                <label for="three-color">三號粒子顏色:</label>
-                <input type="color" id="three-color" value="#0000FF">
-            </div>
         </div>
 
         <div>
@@ -601,10 +616,13 @@
 
         <!-- 在性能數據顯示區域之後添加以下代碼 -->
         <div>
-            <h3>粒子影響範圍顯示</h3>
-            <div>
-                <label for="enableParticleAffcetRadiusShow">啟用粒子影響範圍顯示: </label>
-                <input type="checkbox" id="enableParticleAffcetRadiusShow">
+            <h3>☢️ 粒子影響範圍顯示</h3>
+            <div class="toggle-container">
+                <label for="enableParticleAffcetRadiusShow" class="toggle-label">啟用粒子影響範圍顯示: </label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="enableParticleAffcetRadiusShow">
+                    <span class="slider"></span>
+                </div>
             </div>
             <div>
                 <label for="isOneRadiusShow">顯示一號粒子影響範圍</label>
