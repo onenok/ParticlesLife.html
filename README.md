@@ -23,8 +23,14 @@ git clone https://github.com/onenok/ParticlesLife.html.git
 
 ## 如何使用
 
+您可以通過以下兩種方式使用本專案：
+
+### A. GitHub Pages（Recommand）
+- [ParticlesLife](https://onenok.github.io/ParticlesLife.html)
+
+### B. 本地運行
 1. 將專案檔案放置在本地伺服器（如 Apache、Nginx）或使用 Python 的 SimpleHTTPServer 等工具來啟動本地伺服器。 
-2. 在瀏覽器中訪問 `http://localhost:你的端口號/particles.html` 來運行模擬器。
+2. 在瀏覽器中訪問 `http://localhost:[端口號]/particles.html` 來運行模擬器。
 3. 使用右側的控制面板調整各種參數：
    - 滑動條可以調整粒子間的作用力和作用距離。
    - 顏色選擇器可以更改每種粒子的顏色。
