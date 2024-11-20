@@ -1094,6 +1094,9 @@
                     nearbyParticlesOne = e.data.nearbyParticlesOne;
                     nearbyParticlesTwo = e.data.nearbyParticlesTwo;
                     nearbyParticlesThree = e.data.nearbyParticlesThree;
+                    document.getElementById('nearbyParticlesOneNumber').textContent = nearbyParticlesOne.length;
+                    document.getElementById('nearbyParticlesTwoNumber').textContent = nearbyParticlesTwo.length;
+                    document.getElementById('nearbyParticlesThreeNumber').textContent = nearbyParticlesThree.length;
                     // 更新所選單元格的顯示
                     if (gridData.selectedCell) {
                         document.getElementById('selected-cell').textContent = `x: ${gridData.selectedCell.x}, y: ${gridData.selectedCell.y}`;
@@ -1104,14 +1107,6 @@
                     // 更新網格寬度和高度的顯示
                     document.getElementById('grid-width').textContent = gridData.width;
                     document.getElementById('grid-height').textContent = gridData.height;
-                } else if (e.data.type === 'nearbyParticles') {
-                    nearbyParticlesOne = e.data.nearbyParticlesOne;
-                    console.log(nearbyParticlesOne)
-                    nearbyParticlesTwo = e.data.nearbyParticlesTwo;
-                    nearbyParticlesThree = e.data.nearbyParticlesThree;
-                    document.getElementById('nearbyParticlesOneNumber').textContent = nearbyParticlesOne.length;
-                    document.getElementById('nearbyParticlesTwoNumber').textContent = nearbyParticlesTwo.length;
-                    document.getElementById('nearbyParticlesThreeNumber').textContent = nearbyParticlesThree.length;
                 }
             };
 
