@@ -530,8 +530,8 @@
         <!-- 添加滑鼠吸引力滑塊 -->
         <div>
             <label for="mouse-force">滑鼠吸引力:</label>
-            <input type="range" id="mouse-force" min="0" max="10" step="0.1" value="5">
-            <input type="number" id="mouse-force-number" min="0" max="10" step="0.1" value="5">
+            <input type="range" id="mouse-force" min="0" max="10" step="0.1" value="10">
+            <input type="number" id="mouse-force-number" min="0" max="10" step="0.1" value="10">
         </div>
 
         <div>
@@ -893,13 +893,6 @@
                     });
                 }
             }
-
-            // 移除 WebGL 相關的事件監聽器和函數調用
-            /*
-            // 例如，移除 useWebGLCheckbox 相關的代碼
-            const useWebGLCheckbox = document.getElementById("useWebGL");
-            useWebGLCheckbox.addEventListener('change', () => { ... });
-            */
 
             // 初始化遊戲函數修改
             function initGame() {
