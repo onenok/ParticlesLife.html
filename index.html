@@ -1106,6 +1106,7 @@
                     document.getElementById('grid-height').textContent = gridData.height;
                 } else if (e.data.type === 'nearbyParticles') {
                     nearbyParticlesOne = e.data.nearbyParticlesOne;
+                    console.log(nearbyParticlesOne)
                     nearbyParticlesTwo = e.data.nearbyParticlesTwo;
                     nearbyParticlesThree = e.data.nearbyParticlesThree;
                     document.getElementById('nearbyParticlesOneNumber').textContent = nearbyParticlesOne.length;
