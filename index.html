@@ -530,8 +530,8 @@
         <!-- 添加滑鼠吸引力滑塊 -->
         <div>
             <label for="mouse-force">滑鼠吸引力:</label>
-            <input type="range" id="mouse-force" min="0" max="10" step="0.1" value="10">
-            <input type="number" id="mouse-force-number" min="0" max="10" step="0.1" value="10">
+            <input type="range" id="mouse-force" min="0" max="100" step="0.1" value="50">
+            <input type="number" id="mouse-force-number" min="0" max="100" step="0.1" value="50">
         </div>
 
         <div>
@@ -653,6 +653,14 @@
                 <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">GitHub Issues</span>
             </a>
         </div>
+        <div class="control-section">
+            <h3>物理參數</h3>
+            <div class="control-item">
+                <label for="t-half">摩擦半衰期(秒):</label>
+                <input type="range" id="t-half" min="0.01" max="0.1" step="0.01" value="0.040">
+                <input type="number" id="t-half-number" min="0.01" max="0.1" step="0.01" value="0.040">
+            </div>
+        </div>
     </div>
     <canvas id="board2d"></canvas>
 
@@ -663,7 +671,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const canvas2d = document.getElementById("board2d");
             const ctx = canvas2d.getContext("2d");
-            const ballRadius = 3;
+            const ballRadius = 1.5;
             let nearbyParticlesOne = [];
             let nearbyParticlesTwo = [];
             let nearbyParticlesThree = [];
@@ -698,7 +706,6 @@
             let showGrid = false;
 
             function draw(particles, gridData) {
-                ctx.clearRect(0, 0, canvas2d.width, canvas2d.height);
                 ctx.fillStyle = 'black';
                 ctx.fillRect(0, 0, canvas2d.width, canvas2d.height);
                 
@@ -1129,8 +1136,6 @@
                 });
             });
 
-
-
             // 隨機化值
             function randomizeValues() {
                 document.querySelectorAll('input[type="range"].randomizable').forEach(slider => {
@@ -1400,6 +1405,19 @@
                 worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalUnit.value) });
                 updateIntervalSlider.value = updateIntervalUnit.value;
                 updateIntervalNumber.value = updateIntervalUnit.value;
+            });
+
+            // 添加t_half控制事件監聽器
+            document.getElementById('t-half').addEventListener('input', (e) => {
+                const tHalf = parseFloat(e.target.value);
+                document.getElementById('t-half-number').value = tHalf;
+                worker.postMessage({ type: 'updateTHalf', tHalf: tHalf });
+            });
+
+            document.getElementById('t-half-number').addEventListener('input', (e) => {
+                const tHalf = parseFloat(e.target.value);
+                document.getElementById('t-half').value = tHalf;
+                worker.postMessage({ type: 'updateTHalf', tHalf: tHalf });
             });
 
             // 初始化遊戲並開始更新循環

@@ -10,7 +10,6 @@ let canvas = { width: 0, height: 0 };  // 畫布尺寸
 const ballRadius = 3;  // 粒子半徑
 let isThrough = false;  // 是否允許粒子穿過邊界
 const minDistSquaone = 0;  // 最小距離的平方，用於避免粒子重疊
-let isGrid = true;  // 是否使用網格計算
 let offsetsList = isThrough?[
     {dx: 0, dy: 0},
     {dx: -1*canvas.width, dy: -1*canvas.height}, {dx: 0, dy: -1*canvas.height}, {dx: 1*canvas.width, dy: -1*canvas.height},
@@ -31,6 +30,31 @@ let performanceData = {
 
 // 在文件開頭添加一個全局變量來追蹤粒子 id
 let nextParticleId = 0;
+
+// force計算函數
+function calculateForce(r, a) {
+    const BETA = 0.3;
+    if (r < BETA) {
+        return r / BETA - 1;
+    } else if (BETA < r && r < 1) {
+        return a * (1 - Math.abs(2 * r - 1 - BETA) / (1 - BETA));
+    } else {
+        return 0;
+    }
+}
+
+// 添加時間步長相關常量
+const DEFAULT_DT = 1/144;  // 預設時間步長（144FPS）
+let currentDt = DEFAULT_DT;
+
+// 添加t_half相關常量和變數
+const DEFAULT_T_HALF = 0.040; // 預設半衰期為0.040秒
+let currentTHalf = DEFAULT_T_HALF;
+
+// 計算衰減係數的函數
+function calculateFrictionFactor(dt, tHalf) {
+    return Math.pow(0.5, dt/tHalf);
+}
 
 function isThroughconsoleLog(str) {
     if (isThrough) {
@@ -169,121 +193,77 @@ class Grid {
 let grid;
 
 // 粒子間相互作用的規則函數
-function rule_grid(o, p1, p2, g, r) {
-    const startTime = performance.now();
+function rule_grid(p1, p2, g, r) {
     const r2 = r * r;
     const gridResetStartTime = performance.now();
     grid.clear();
     p2.forEach(b => grid.add(b));
     performanceData.gridResetTime += performance.now() - gridResetStartTime;
+    
     for (let i = 0; i < p1.length; i++) {
         let fx = 0, fy = 0;
         const a = p1[i];
-        const oA = o[i];
         const getNearbyStartTime = performance.now();
         const nearbylist = grid.getNearby(a, r, isThrough);
         performanceData.getNearbyTime += performance.now() - getNearbyStartTime;
         const nearbyParticles = nearbylist[0];
         const offsets = nearbylist[1];
+        
         const gAffectCalcStartTime = performance.now();
         for (let j = 0; j < nearbyParticles.length; j++) {
             const b = nearbyParticles[j];
             const offset = offsets[j];
             if (a === b) continue; // 跳過自身
-            const dx = a.x - (b.x + offset.dx);
-            const dy = a.y - (b.y + offset.dy);
+            const dx = (b.x + offset.dx) - a.x;
+            const dy = (b.y + offset.dy) - a.y;
             const distSquared = dx * dx + dy * dy;
-            if (distSquared > minDistSquaone && distSquared < r2) {
-                const F = -g / Math.sqrt(distSquared);
-                fx += F * dx;
-                fy += F * dy;
-            }
+            
+            if (distSquared >= r2) continue;
+            
+            const dist = Math.sqrt(distSquared);
+            const F = calculateForce(dist/r, g);
+            
+            fx += F * dx / dist;
+            fy += F * dy / dist;   
         }
+        fx *= r * 10;
+        fy *= r * 10;
+        // 更新速度（應用力和摩擦力）
+        const frictionFactor = calculateFrictionFactor(currentDt, currentTHalf);
+        a.vx *= frictionFactor;
+        a.vy *= frictionFactor;
+        a.vx += fx * currentDt;
+        a.vy += fy * currentDt;
         performanceData.gAffectCalcTime += performance.now() - gAffectCalcStartTime;
-        // 更新粒子速度
-        oA.vx = (oA.vx + fx) * 0.5;
-        oA.vy = (oA.vy + fy) * 0.5;
-
-        // 更新粒子位置
+    }
+}
+function rule_grid_update(p1) {
+    // 更新位置
+    for (let i = 0; i < p1.length; i++) {
+        const a = p1[i];
         const positionUpdateStartTime = performance.now();
         if (isThrough) {
-            // 如果允許穿透，使用模運算處理邊界
-            oA.x = (oA.x + oA.vx + canvas.width) % canvas.width;
-            oA.y = (oA.y + oA.vy + canvas.height) % canvas.height;
+            a.x = (a.x + a.vx * currentDt + canvas.width) % canvas.width;
+            a.y = (a.y + a.vy * currentDt + canvas.height) % canvas.height;
         } else {
-            // 如果不允許穿透，在邊界處反彈
-            let nextX = oA.x + oA.vx;
-            let nextY = oA.y + oA.vy;
+            let nextX = a.x + a.vx * currentDt;
+            let nextY = a.y + a.vy * currentDt;
 
             if (nextX < ballRadius || nextX > canvas.width - ballRadius) {
-                oA.vx *= -1;
+                a.vx *= -1;
                 nextX = 2*Math.max(ballRadius, Math.min(nextX, canvas.width - ballRadius))-nextX;
             }
             if (nextY < ballRadius || nextY > canvas.height - ballRadius) {
-                oA.vy *= -1;
+                a.vy *= -1;
                 nextY = 2*Math.max(ballRadius, Math.min(nextY, canvas.height - ballRadius))-nextY;
             }
 
-            oA.x = nextX;
-            oA.y = nextY;
+            a.x = nextX;
+            a.y = nextY;
         }
         performanceData.positionUpdateTime += performance.now() - positionUpdateStartTime;
     }
     //isThroughconsoleLog("rule4", performance.now());
-    performanceData.totalTime += performance.now() - startTime;
-}
-function rule_direct(o, p1, p2, g, r) {
-    const startTime = performance.now();
-    const r2 = r * r;
-    for (let i = 0; i < p1.length; i++) {
-        let fx = 0, fy = 0;
-        const a = p1[i];
-        const oA = o[i];
-        const gAffectCalcStartTime = performance.now();
-        for (let j = 0; j < p2.length; j++) {
-            for (let offset of offsetsList){
-                const b = p2[j];
-                const dx = a.x - (b.x + offset.dx);
-                const dy = a.y - (b.y + offset.dy);
-                const distSquared = dx * dx + dy * dy;
-                if (distSquared > minDistSquaone && distSquared < r2) {
-                    const F = -g / Math.sqrt(distSquared);
-                    fx += F * dx;
-                    fy += F * dy;
-                }
-            }
-        }
-        performanceData.gAffectCalcTime += performance.now() - gAffectCalcStartTime;
-        // 更新粒子速度
-        oA.vx = (oA.vx + fx) * 0.5;
-        oA.vy = (oA.vy + fy) * 0.5;
-
-        // 更新粒子位置
-        const positionUpdateStartTime = performance.now();
-        if (isThrough) {
-            // 如果允許穿透，使用模運算處理邊界
-            oA.x = (oA.x + oA.vx + canvas.width) % canvas.width;
-            oA.y = (oA.y + oA.vy + canvas.height) % canvas.height;
-        } else {
-            // 如果不允許穿透，在邊界處反彈
-            let nextX = oA.x + oA.vx;
-            let nextY = oA.y + oA.vy;
-
-            if (nextX < ballRadius || nextX > canvas.width - ballRadius) {
-                oA.vx *= -1;
-                nextX = 2*Math.max(ballRadius, Math.min(nextX, canvas.width - ballRadius))-nextX;
-            }
-            if (nextY < ballRadius || nextY > canvas.height - ballRadius) {
-                oA.vy *= -1;
-                nextY = 2*Math.max(ballRadius, Math.min(nextY, canvas.height - ballRadius))-nextY;
-            }
-
-            oA.x = nextX;
-            oA.y = nextY;
-        }
-        performanceData.positionUpdateTime += performance.now() - positionUpdateStartTime;
-    }
-    performanceData.totalTime += performance.now() - startTime;
 }
 
 // 規則對象，定義不同類型粒子間的相互作用
@@ -301,9 +281,7 @@ let rules = {
 
 // 更新函數，處理所有粒子的相互作用和位置更新
 function update() {
-    let oneCopy = JSON.parse(JSON.stringify(one));
-    let twoCopy = JSON.parse(JSON.stringify(two));
-    let threeCopy = JSON.parse(JSON.stringify(three));
+    const startTime = performance.now();
     performanceData = {
         totalTime: 0,
         gAffectCalcTime: 0,
@@ -320,27 +298,15 @@ function update() {
     };
 
     // 應用所有規則
-    if (isGrid) {
-        rule_grid(one, oneCopy, oneCopy, rules['one-one'], rules['one-one-distance']);
-        rule_grid(one, oneCopy, twoCopy, rules['one-two'], rules['one-two-distance']);
-        rule_grid(one, oneCopy, threeCopy, rules['one-three'], rules['one-three-distance']);
-        rule_grid(two, twoCopy, twoCopy, rules['two-two'], rules['two-two-distance']);
-        rule_grid(two, twoCopy, threeCopy, rules['two-three'], rules['two-three-distance']);
-        rule_grid(two, twoCopy, oneCopy, rules['two-one'], rules['two-one-distance']);
-        rule_grid(three, threeCopy, threeCopy, rules['three-three'], rules['three-three-distance']);
-        rule_grid(three, threeCopy, oneCopy, rules['three-one'], rules['three-one-distance']);
-        rule_grid(three, threeCopy, twoCopy, rules['three-two'], rules['three-two-distance']);
-    } else {
-        rule_direct(one, oneCopy, oneCopy, rules['one-one'], rules['one-one-distance']);
-        rule_direct(one, oneCopy, twoCopy, rules['one-two'], rules['one-two-distance']);
-        rule_direct(one, oneCopy, threeCopy, rules['one-three'], rules['one-three-distance']);
-        rule_direct(two, twoCopy, twoCopy, rules['two-two'], rules['two-two-distance']);
-        rule_direct(two, twoCopy, threeCopy, rules['two-three'], rules['two-three-distance']);
-        rule_direct(two, twoCopy, oneCopy, rules['two-one'], rules['two-one-distance']);
-        rule_direct(three, threeCopy, threeCopy, rules['three-three'], rules['three-three-distance']);
-        rule_direct(three, threeCopy, oneCopy, rules['three-one'], rules['three-one-distance']);
-        rule_direct(three, threeCopy, twoCopy, rules['three-two'], rules['three-two-distance']);
-    }
+    rule_grid(one, one, rules['one-one'], rules['one-one-distance']);
+    rule_grid(one, two, rules['one-two'], rules['one-two-distance']);
+    rule_grid(one, three, rules['one-three'], rules['one-three-distance']);
+    rule_grid(two, two, rules['two-two'], rules['two-two-distance']);
+    rule_grid(two, three, rules['two-three'], rules['two-three-distance']);
+    rule_grid(two, one, rules['two-one'], rules['two-one-distance']);
+    rule_grid(three, three, rules['three-three'], rules['three-three-distance']);
+    rule_grid(three, one, rules['three-one'], rules['three-one-distance']);
+    rule_grid(three, two, rules['three-two'], rules['three-two-distance']);
     // 添加滑鼠吸引力
     if (isMouseActive) {
         //isThroughconsoleLog("c");
@@ -406,6 +372,8 @@ function update() {
         };
         //isThroughconsoleLog("h");
     }
+    rule_grid_update(particles);
+    performanceData.totalTime += performance.now() - startTime;
     self.postMessage({ type: 'update', particles, performanceData, gridData, nearbyParticlesOne, nearbyParticlesTwo, nearbyParticlesThree});
     //isThroughconsoleLog("i");
 }
@@ -455,9 +423,6 @@ self.onmessage = function (e) {
                 {dx: -1*canvas.width, dy: 0}, {dx: canvas.width, dy: 0},
                 {dx: -1*canvas.width, dy: canvas.height}, {dx: 0, dy: canvas.height}, {dx: canvas.width, dy: canvas.height}
             ]:[{dx: 0, dy: 0}];
-            break;
-        case 'isGrid':
-            isGrid = e.data.isGrid;
             break;
         case 'updateCanvasSize':
             // 更新畫布大小
@@ -527,6 +492,12 @@ self.onmessage = function (e) {
         case 'toggleParticleAffcetRadiusShow':
             enableParticleAffcetRadiusShow = e.data.enable;
             break;
+        case 'updateDt':
+            currentDt = e.data.dt;
+            break;
+        case 'updateTHalf':
+            currentTHalf = e.data.tHalf;
+            break;
     }
 };
 
@@ -535,7 +506,7 @@ let selectedParticleId = null;
 let mouseX = 0;
 let mouseY = 0;
 let isMouseActive = false;
-let mouseForce = 10;
+let mouseForce = 50;
 let cellSize = 50;
 let setectGridDistance = 250;
 let canUpdate = false;
