@@ -3,33 +3,67 @@
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
-// 粒子系統的常量和變量
+// vvvvvvvv純變數宣告vvvvvvvv   
+// 變數的值可能會在運行後由html檔案的javascript部分給予
+// 粒子系統的常量和變量 
 let particles = [];  // 存儲所有粒子的數組
-let one = [], two = [], three = [];  // 分別存儲三種類型粒子的數組
+let particleGroups = [];  // 存儲不同類型的粒子數組
+// 畫布相關
 let canvas = { width: 0, height: 0 };  // 畫布尺寸
-const ballRadius = 3;  // 粒子半徑
+const ballRadius = 0;  // 粒子半徑
+// 穿透相關
 let isThrough = false;  // 是否允許粒子穿過邊界
-const minDistSquaone = 0;  // 最小距離的平方，用於避免粒子重疊
 let offsetsList = isThrough?[
     {dx: 0, dy: 0},
     {dx: -1*canvas.width, dy: -1*canvas.height}, {dx: 0, dy: -1*canvas.height}, {dx: 1*canvas.width, dy: -1*canvas.height},
     {dx: -1*canvas.width, dy: 0}, {dx: 1*canvas.width, dy: 0},
     {dx: -1*canvas.width, dy: 1*canvas.height}, {dx: 0, dy: 1*canvas.height}, {dx: 1*canvas.width, dy: 1*canvas.height}
 ]:[{dx: 0, dy: 0}];
-
-// 在文件開頭添加新的變量
-let showGrid = false;
-let selectedCell = null;
-
+// 新增：粒子交互規則矩陣
+let forceMatrix = [];  // 存儲粒子間的引力值
+let distanceMatrix = [];  // 存儲粒子間的作用距離
+let particleColors = [];  // 存儲每種粒子的顏色 (HSL格式)
+let particleCounts = [];  // 存儲每種粒子的數量
+let particleTypes = 0;  // 默認粒子類型數量
+// 
 // 性能數據對象，用於記錄各部分的執行時間
 let performanceData = {
     totalTime: 0,
     gAffectCalcTime: 0,
     positionUpdateTime: 0,
 };
-
-// 在文件開頭添加一個全局變量來追蹤粒子 id
+// 粒子 id
 let nextParticleId = 0;
+// 選中的粒子id
+let selectedParticleId = null;
+// 滑鼠相關
+let mouseX = 0;
+let mouseY = 0;
+let isMouseActive = false;
+let mouseForce = 0;
+// 網格相關
+let showGrid = false;
+let selectedCell = null;
+let gridData = null;
+let setectGridDistance = 0;
+let cellSize = 0;
+// 更新相關
+let canUpdate = false;
+let isUpdating = false;
+// 粒子交互相關
+let enableParticleAffcetRadiusShow = false;
+// 更新間隔
+let updateInterval = 0; // 預設速度設為 16 毫秒，約等於 60 FPS
+// ^^^^^^^^純變數宣告^^^^^^^^   
+// -----------------------------
+
+// main loop
+let updateIntervalId = setInterval(() => {
+    if (canUpdate) {
+        canUpdate = false;
+        update();
+    }
+}, updateInterval);
 
 // force計算函數
 function calculateForce(r, a) {
@@ -66,7 +100,15 @@ function isThroughconsoleLog(str) {
 function particle(x, y, c, type) {
     // 為每個新粒子分配一個唯一的 id
     const id = nextParticleId++;
-    return { "id": id, "x": x, "y": y, "vx": 0, "vy": 0, "color": c, "type": type };
+    return {
+        "id": id,
+        "x": x,
+        "y": y,
+        "vx": 0,
+        "vy": 0,
+        "color": c,
+        "type": type
+    };
 }
 
 // 生成隨機 X 坐標
@@ -79,14 +121,18 @@ function rY() {
     return Math.random() * (canvas.height - 100) + 50;
 }
 
-// 創建一組粒子的函數
-function create(n, c, type) {
+// 生成指定類型的粒子組
+function create(count, c, type) {
     let group = [];
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < count; i++) {
         group.push(particle(rX(), rY(), c, type));
     }
     return group;
 }
+
+// 初始化矩陣
+forceMatrix = [];
+distanceMatrix = [];
 
 let isNotGridPerfectlyFit = 0;
 // 網格類，用於優化粒子間相互作用的計算
@@ -192,9 +238,14 @@ class Grid {
 // 創建全局網格對象
 let grid;
 
-// 粒子間相互作用的規則函數
-function rule_grid(p1, p2, g, r) {
+// 修改 rule_grid 函數使用矩陣
+function rule_grid(type1, type2) {
+    const r = distanceMatrix[type1][type2];
+    const g = forceMatrix[type1][type2];
     const r2 = r * r;
+    const p1 = particleGroups[type1];
+    const p2 = particleGroups[type2];
+    
     const gridResetStartTime = performance.now();
     grid.clear();
     p2.forEach(b => grid.add(b));
@@ -237,6 +288,7 @@ function rule_grid(p1, p2, g, r) {
         performanceData.gAffectCalcTime += performance.now() - gAffectCalcStartTime;
     }
 }
+
 function rule_grid_update(p1) {
     // 更新位置
     for (let i = 0; i < p1.length; i++) {
@@ -266,22 +318,9 @@ function rule_grid_update(p1) {
     //isThroughconsoleLog("rule4", performance.now());
 }
 
-// 規則對象，定義不同類型粒子間的相互作用
-let rules = {
-    'two-two': 0.5, 'two-two-distance': 100,
-    'two-one': 0.5, 'two-one-distance': 200,
-    'two-three': 0.5, 'two-three-distance': 100,
-    'one-one': 0.4, 'one-one-distance': 150,
-    'one-two': -0.6, 'one-two-distance': 12,
-    'one-three': 0.5, 'one-three-distance': 10,
-    'three-three': 0.4, 'three-three-distance': 130,
-    'three-one': -0.5, 'three-one-distance': 100,
-    'three-two': -0.5, 'three-two-distance': 10
-};
-
-// 更新函數，處理所有粒子的相互作用和位置更新
+// 修改 update 函數使用矩陣
 function update() {
-    const startTime = performance.now();
+    // 重置性能數據
     performanceData = {
         totalTime: 0,
         gAffectCalcTime: 0,
@@ -296,68 +335,41 @@ function update() {
         selectedCell: null,
         nearbyCells: []
     };
+    const startTime = performance.now();
 
     // 應用所有規則
-    rule_grid(one, one, rules['one-one'], rules['one-one-distance']);
-    rule_grid(one, two, rules['one-two'], rules['one-two-distance']);
-    rule_grid(one, three, rules['one-three'], rules['one-three-distance']);
-    rule_grid(two, two, rules['two-two'], rules['two-two-distance']);
-    rule_grid(two, three, rules['two-three'], rules['two-three-distance']);
-    rule_grid(two, one, rules['two-one'], rules['two-one-distance']);
-    rule_grid(three, three, rules['three-three'], rules['three-three-distance']);
-    rule_grid(three, one, rules['three-one'], rules['three-one-distance']);
-    rule_grid(three, two, rules['three-two'], rules['three-two-distance']);
+    for (let i = 0; i < particleTypes; i++) {
+        for (let j = 0; j < particleTypes; j++) {
+            rule_grid(i, j);
+        }
+    }
+    for (let i = 0; i < particleTypes; i++) {
+        for (let j = 0; j < particleTypes; j++) {
+            rule_grid_update(particleGroups[i]);
+        }
+    }
     // 添加滑鼠吸引力
     if (isMouseActive) {
-        //isThroughconsoleLog("c");
-        applyMouseForce(one);
-        //isThroughconsoleLog("c1");
-        applyMouseForce(two);
-        //isThroughconsoleLog("c2");
-        applyMouseForce(three);
+        particleGroups.forEach(group => applyMouseForce(group));
     }
-    let nearbyParticlesOne = [];
-    let nearbyParticlesTwo = [];
-    let nearbyParticlesThree = [];
+    particles = particleGroups.flat();
+
+    let nearbyParticlesList = [];
     if (selectedParticleId && enableParticleAffcetRadiusShow) {
-        let selectedParticle = particles.find(p => p.id === selectedParticleId);
+        let selectedParticle = particles[selectedParticleId];
         const Ptype = selectedParticle.type;
-        const rOne = rules[Ptype+'-one-distance'];
-        const rTwo = rules[Ptype+'-two-distance'];
-        const rThree = rules[Ptype+'-three-distance'];
-        grid.clear();
-        one.forEach(b => grid.add(b));
-        const nearbylistOne = grid.getNearby(selectedParticle, rOne, isThrough);
-        const offsetsOne = nearbylistOne[1];
-        nearbyParticlesOne = nearbylistOne[0].filter((p, i) => {
-            const dx = offsetsOne[i].dx;
-            const dy = offsetsOne[i].dy;
-            return (p.x+dx-selectedParticle.x)*(p.x+dx-selectedParticle.x)+(p.y+dy-selectedParticle.y)*(p.y+dy-selectedParticle.y) <= rOne*rOne;
-        });
-        grid.clear();
-        two.forEach(b => grid.add(b));
-        const nearbylistTwo = grid.getNearby(selectedParticle, rTwo, isThrough);
-        const offsetsTwo = nearbylistTwo[1];
-        nearbyParticlesTwo = nearbylistTwo[0].filter((p, i) => {
-            const dx = offsetsTwo[i].dx;
-            const dy = offsetsTwo[i].dy;
-            return (p.x+dx-selectedParticle.x)*(p.x+dx-selectedParticle.x)+(p.y+dy-selectedParticle.y)*(p.y+dy-selectedParticle.y) <= rTwo*rTwo;
-        });
-        grid.clear();
-        three.forEach(b => grid.add(b));
-        const nearbylistThree = grid.getNearby(selectedParticle, rThree, isThrough);
-        const offsetsThree = nearbylistThree[1];
-        nearbyParticlesThree = nearbylistThree[0].filter((p, i) => {
-            const dx = offsetsThree[i].dx;
-            const dy = offsetsThree[i].dy;
-            return (p.x+dx-selectedParticle.x)*(p.x+dx-selectedParticle.x)+(p.y+dy-selectedParticle.y)*(p.y+dy-selectedParticle.y) <= rThree*rThree;
-        });
+        for (let i = 0; i < particleTypes; i++) {
+            grid.clear();
+            particleGroups[i].forEach(b => grid.add(b));
+            const nearbylist = grid.getNearby(selectedParticle, distanceMatrix[Ptype][i], isThrough);
+            const offsets = nearbylist[1];
+            nearbyParticlesList[i] = nearbylist[0].filter((p, i) => {
+                const dx = offsets[i].dx;
+                const dy = offsets[i].dy;
+                return (p.x+dx-selectedParticle.x)*(p.x+dx-selectedParticle.x)+(p.y+dy-selectedParticle.y)*(p.y+dy-selectedParticle.y) <= distanceMatrix[Ptype][i]*distanceMatrix[Ptype][i];
+            });
+        }
     }
-    //isThroughconsoleLog("d");
-    // 合併所有粒子到一個數組
-    particles = [...one, ...two, ...three];
-    //isThroughconsoleLog("e");
-    //isThroughconsoleLog("f");
 
     if (showGrid) {
         //isThroughconsoleLog("g"); 
@@ -372,10 +384,15 @@ function update() {
         };
         //isThroughconsoleLog("h");
     }
-    rule_grid_update(particles);
-    performanceData.totalTime += performance.now() - startTime;
-    self.postMessage({ type: 'update', particles, performanceData, gridData, nearbyParticlesOne, nearbyParticlesTwo, nearbyParticlesThree});
-    //isThroughconsoleLog("i");
+
+    performanceData.totalTime = performance.now() - startTime;
+    self.postMessage({ 
+        type: 'update', 
+        particles, 
+        performanceData, 
+        gridData,
+        nearbyParticlesList,
+    });
 }
 
 // 應用滑鼠力量到粒子組
@@ -393,6 +410,7 @@ function applyMouseForce(particleGroup) {
     }
 }
 
+
 // 處理主線程發來的消息
 self.onmessage = function (e) {
     switch (e.data.type) {
@@ -401,19 +419,26 @@ self.onmessage = function (e) {
             nextParticleId = 0; // 重置 id 計數器
             canvas.width = e.data.canvasWidth;
             canvas.height = e.data.canvasHeight;
-            one = create(e.data.oneCount, e.data.colors.one, "one");
-            two = create(e.data.twoCount, e.data.colors.two, "two");
-            three = create(e.data.threeCount, e.data.colors.three, "three");
-            particles = [...one, ...two, ...three];
-            grid = new Grid(cellSize, canvas.width, canvas.height);
-            break;
-        case 'updateRules':
-            // 更新規則
-            rules = { ...rules, ...e.data.rules };
-            if ('isThrough' in e.data.rules) {
-                isThrough = e.data.rules.isThrough;
+            particleTypes = e.data.particleTypes;
+            particleColors = e.data.particleColors;
+            particleCounts = e.data.particleCounts;
+            gridSize = e.data.gridSize;
+            
+            // 初始化網格
+            grid = new Grid(gridSize, canvas.width, canvas.height);
+            
+            // 初始化矩陣和粒子
+            for (let i = 0; i < particleTypes; i++) {
+                particleGroups[i] = create(particleCounts[i], particleColors[i], i);
             }
             break;
+            
+        case 'updateRules':
+            // 更新規則矩陣
+            forceMatrix = e.data.forceMatrix;
+            distanceMatrix = e.data.distanceMatrix;
+            break;
+            
         case 'setThrough':
             // 設置穿透模式
             isThrough = e.data.isThrough;
@@ -428,24 +453,22 @@ self.onmessage = function (e) {
             // 更新畫布大小
             canvas.width = e.data.width;
             canvas.height = e.data.height;
-            grid = new Grid(cellSize, canvas.width, canvas.height);
+            if (cellSize) {
+                grid = new Grid(cellSize, canvas.width, canvas.height);
+            }
             break;
         case 'canUpdate':
             // 請求更新
             canUpdate = true;
             break;
         case 'updateColors':
-            // 更新粒子顏色
-            const colors = e.data.colors;
-            particles.forEach(p => {
-                if (p.type === "one") {
-                    p.color = colors.one;
-                } else if (p.type === "two") {
-                    p.color = colors.two;
-                } else if (p.type === "three") {
-                    p.color = colors.three;
-                }
-            });
+            particleColors = e.data.particleColors; // 接收 HSL 格式的顏色
+            //console.log(`particleWorker.js: particleColors: ${particleColors}`);
+            for (let i = 0; i < particleTypes; i++) {
+                particleGroups[i].forEach(p => {
+                    p.color = particleColors[i];
+                });
+            }
             break;
         case 'updateMousePosition':
             // 更新滑鼠位置
@@ -460,7 +483,9 @@ self.onmessage = function (e) {
         case 'updateCellSize':
             // 更新網格大小
             cellSize = e.data.size;
-            grid = new Grid(cellSize, canvas.width, canvas.height);
+            if (canvas.width && canvas.height) {
+                grid = new Grid(cellSize, canvas.width, canvas.height);
+            }
             break;
         case 'setMouseInactive':
             // 設置滑鼠為非活動狀態
@@ -498,24 +523,9 @@ self.onmessage = function (e) {
         case 'updateTHalf':
             currentTHalf = e.data.tHalf;
             break;
+        case 'updateBallRadius':
+            ballRadius = e.data.radius;
+            break;
     }
 };
 
-// 滑鼠相關變量
-let selectedParticleId = null;
-let mouseX = 0;
-let mouseY = 0;
-let isMouseActive = false;
-let mouseForce = 50;
-let cellSize = 50;
-let setectGridDistance = 250;
-let canUpdate = false;
-let isUpdating = false;
-let enableParticleAffcetRadiusShow = false;
-let updateInterval = 16; // 預設速度設為 16 毫秒，約等於 60 FPS
-let updateIntervalId = setInterval(() => {
-    if (canUpdate) {
-        canUpdate = false;
-        update();
-    }
-}, updateInterval);

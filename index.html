@@ -70,23 +70,6 @@
             border-color: rgb(63, 63, 63);
         }*/
 
-        /* 修改文字樣式，使用 -webkit-text-stroke 創建輪廓 */
-
-        .one {
-            -webkit-text-stroke: .375px black;
-            -webkit-text-fill-color: #FF0000;
-        }
-
-        .two {
-            -webkit-text-stroke: .375px black;
-            -webkit-text-fill-color: #00FF00;
-        }
-
-        .three {
-            -webkit-text-stroke: .375px black;
-            -webkit-text-fill-color: #0000FF;
-        }
-
         /* 按鈕組樣式 */
         .button-group {
             margin: 20px 0;
@@ -343,11 +326,56 @@
             margin: 20px 0;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
         }
-        .rules-container > div {
+        .rules-container > div:not(.no-background) {
             background: rgba(0, 0, 0, 0.1); 
             border-radius: 10px;
             margin: 20px 0;
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .matrix-container {
+            overflow-x: auto;
+            display: flex;
+        }
+
+        .matrix-container input[type="number"] {
+            width: 100%;
+            padding: 2px;
+            border: none;
+            border-radius: 2px;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 14px;
+        }
+
+
+        .particle-type {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 0 5px 5px 5px;
+            border-radius: 5px;
+        }
+        .description {
+            color: #222222;
+            font-size: 12px;
+            margin: 0;
+        }
+
+        .matrix-table {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .color-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .color-inputs input[type="color"],
+        .color-inputs input[type="range"] {
+            flex: 1;
         }
     </style>
 </head>
@@ -355,146 +383,25 @@
 <body>
     <button id="toggle-controls">☰</button>
     <div id="controls">
-        <!-- 在 HTML 中，為需要隨機化的滑塊添加 'randomizable' 類 -->
-        <!-- 一號 -->
         <div class="rules-container">
-            <h3>📋 粒子規則</h3>
-            <div>
+            <h3>📋 粒子系統設置</h3>
+            <div class="control-section">
+                <h3>基本設置</h3>
                 <div>
-                    <label for="one-one"><span class="one">一號->一號:</span></label>
-                    <input type="range" id="one-one" class="randomizable rules" min="-1" max="1" step="0.1" value="0.4">
-                    <input type="number" id="one-one-number" min="-1" max="1" step="0.1" value="0.4">
-                </div>
-                <div>
-                    <label for="one-one-distance"><span class="one">一號->一號距離:</span></label>
-                    <input type="range" id="one-one-distance" class="randomizable rules" min="10" max="300" step="10" value="150">
-                    <input type="number" id="one-one-distance-number" min="10" max="300" step="10" value="150">
-                </div>
-                <div>
-                    <label for="one-two"><span class="one">一號-></span><span class="two">二號:</span></label>
-                    <input type="range" id="one-two" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.6">
-                    <input type="number" id="one-two-number" min="-1" max="1" step="0.1" value="-0.6">
-                </div>
-                <div>
-                    <label for="one-two-distance"><span class="one">一號-></span><span class="two">二號距離:</span></label>
-                    <input type="range" id="one-two-distance" class="randomizable rules" min="10" max="300" step="10" value="12">
-                    <input type="number" id="one-two-distance-number" min="10" max="300" step="10" value="12">
-                </div>
-                <div>
-                    <label for="one-three"><span class="one">一號-></span><span class="three">三號:</span></label>
-                    <input type="range" id="one-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
-                    <input type="number" id="one-three-number" min="-1" max="1" step="0.1" value="0.5">
-                </div>
-                <div>
-                    <label for="one-three-distance"><span class="one">一號-></span><span class="three">三號距離:</span></label>
-                    <input type="range" id="one-three-distance" class="randomizable rules" min="10" max="300" step="10" value="10">
-                    <input type="number" id="one-three-distance-number" min="10" max="300" step="10" value="10">
-                </div>
-            </div>
-            <!-- 二號 -->
-            <div>
-                <div>
-                    <label for="two-two"><span class="two">二號->二號:</span></label>
-                    <input type="range" id="two-two" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
-                    <input type="number" id="two-two-number" min="-1" max="1" step="0.1" value="0.5">
-                </div>
-                <div>
-                    <label for="two-two-distance"><span class="two">二號->二號距離:</span></label>
-                    <input type="range" id="two-two-distance" class="randomizable rules" min="10" max="300" step="10" value="100">
-                    <input type="number" id="two-two-distance-number" min="10" max="300" step="10" value="100">
-                </div>
-                <div>
-                    <label for="two-three"><span class="two">二號-></span><span class="three">三號:</span></label>
-                    <input type="range" id="two-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
-                    <input type="number" id="two-three-number" min="-1" max="1" step="0.1" value="0.5">
-                </div>
-                <div>
-                    <label for="two-three-distance"><span class="two">二號-></span><span class="three">三號距離:</span></label>
-                    <input type="range" id="two-three-distance" class="randomizable rules" min="10" max="300" step="10"
-                        value="100">
-                    <input type="number" id="two-three-distance-number" min="10" max="300" step="10" value="100">
-                </div>
-                <div>
-                    <label for="two-one"><span class="two">二號-></span><span class="one">一號:</span></label>
-                    <input type="range" id="two-one" class="randomizable rules" min="-1" max="1" step="0.1" value="0.5">
-                    <input type="number" id="two-one-number" min="-1" max="1" step="0.1" value="0.5">
-                </div>
-                <div>
-                    <label for="two-one-distance"><span class="two">二號-></span><span class="one">一號距離:</span></label>
-                    <input type="range" id="two-one-distance" class="randomizable rules" min="10" max="300" step="10" value="200">
-                    <input type="number" id="two-one-distance-number" min="10" max="300" step="10" value="200">
-                </div>
-            </div>
-            <!-- 三號 -->
-            <div>
-                <div>
-                    <label for="three-three"><span class="three">三號->三號:</span></label>
-                    <input type="range" id="three-three" class="randomizable rules" min="-1" max="1" step="0.1" value="0.4">
-                    <input type="number" id="three-three-number" min="-1" max="1" step="0.1" value="0.4">
-                </div>
-                <div>
-                    <label for="three-three-distance"><span class="three">三號->三號距離:</span></label>
-                    <input type="range" id="three-three-distance" class="randomizable rules" min="10" max="300" step="10"
-                        value="130">
-                    <input type="number" id="three-three-distance-number" min="10" max="300" step="10" value="130">
-                </div>
-                <div>
-                    <label for="three-one"><span class="three">三號-></span><span class="one">一號:</span></label>
-                    <input type="range" id="three-one" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.5">
-                    <input type="number" id="three-one-number" min="-1" max="1" step="0.1" value="-0.5">
-                </div>
-                <div>
-                    <label for="three-one-distance"><span class="three">三號-></span><span class="one">一號距離:</span></label>
-                    <input type="range" id="three-one-distance" class="randomizable rules" min="10" max="300" step="10"
-                        value="100">
-                    <input type="number" id="three-one-distance-number" min="10" max="300" step="10" value="100">
-                </div>
-                <div>
-                    <label for="three-two"><span class="three">三號-></span><span class="two">二號:</span></label>
-                    <input type="range" id="three-two" class="randomizable rules" min="-1" max="1" step="0.1" value="-0.5">
-                    <input type="number" id="three-two-number" min="-1" max="1" step="0.1" value="-0.5">
-                </div>
-                <div>
-                    <label for="three-two-distance"><span class="three">三號-></span><span class="two">二號距離:</span></label>
-                    <input type="range" id="three-two-distance" class="randomizable rules" min="10" max="300" step="10"
-                        value="10">
-                    <input type="number" id="three-two-distance-number" min="10" max="300" step="10" value="10">
-                </div>
-            </div>
-            <div>
-                <div class="one">
-                    <label for="one-particles">一號粒子數量:</label>
-                    <input type="range" id="one-particles" class="rules" min="10" max="500" step="10" value="250">
-                    <input type="number" id="one-particles-number" min="10" max="500" step="10" value="250">
-                </div>
-                <div class="two">
-                    <label for="two-particles">二號粒子數量:</label>
-                    <input type="range" id="two-particles" class="rules" min="10" max="500" step="10" value="250">
-                    <input type="number" id="two-particles-number" min="10" max="500" step="10" value="250">
-                </div>
-                <div class="three">
-                    <label for="three-particles">三號粒子數量:</label>
-                    <input type="range" id="three-particles" class="rules" min="10" max="500" step="10" value="250">
-                    <input type="number" id="three-particles-number" min="10" max="500" step="10" value="250">
+                    <label for="particle-types">粒子類型數量:</label>
+                    <input type="number" id="particle-types" min="1" max="10" value="3">
                 </div>
             </div>
             
-            <div>
-                <div class="one">
-                    <label for="one-color">一號粒子顏色:</label>
-                    <input type="color" id="one-color" value="#FF0000">
-                </div>
-                <div class="two">
-                    <label for="two-color">二號粒子顏色:</label>
-                    <input type="color" id="two-color" value="#00FF00">
-                </div>
-                <div class="three">
-                    <label for="three-color">三號粒子顏色:</label>
-                    <input type="color" id="three-color" value="#0000FF">
-                </div>
+            <div id="particle-settings" class="no-background">
+                <!-- 動態生成的粒子設置 -->
+            </div>
+            
+            <div id="interaction-matrix" class="no-background">
+                <!-- 動態生成的交互矩陣 -->
             </div>
         </div>
-
+        
         <div class="toggle-container">
             <label for="isThrough" class="toggle-label">🔁 無邊界模式</label>
             <div class="toggle-switch">
@@ -536,8 +443,8 @@
 
         <div>
             <label for="updateInterval">更新間隔(ms):</label>
-            <input type="range" id="updateInterval" min="1" max="2000" step="0.01" value="16.66">
-            <input type="number" id="updateInterval-number" min="1" max="2000" step="0.01" value="16.66">
+            <input type="range" id="updateInterval" min="1" max="50" step="0.01" value="16.66">
+            <input type="number" id="updateInterval-number" min="1" max="50" step="0.01" value="16.66">
             <select id="updateInterval-unit">
                 <option value="33.33">30 UPS</option>
                 <option value="16.66" selected>60 UPS</option>
@@ -624,24 +531,23 @@
                     <span class="slider"></span>
                 </div>
             </div>
-            <div>
-                <label for="isOneRadiusShow">顯示一號粒子影響範圍</label>
-                <input type="checkbox" id="isOneRadiusShow" checked>
-            </div>
-            <div>
-                <label for="isTwoRadiusShow">顯示二號粒子影響範圍</label>
-                <input type="checkbox" id="isTwoRadiusShow" checked>
-            </div>
-            <div>
-                <label for="isThreeRadiusShow">顯示三號粒子影響範圍</label>
-                <input type="checkbox" id="isThreeRadiusShow" checked>
+            <div id="particle-affcet-radius-show">
+                <!-- 動態生成的粒子影響範圍顯示設置 -->
             </div>
             <div>
                 <p>選中的粒子ID: <span id="selectedParticleId">無</span></p>
                 <p>選中的粒子屬性: <span id="selectedParticleProperty"></span></p>
-                <p>範圍內的一號粒子數量: <span id="nearbyParticlesOneNumber"></span></p>
-                <p>範圍內的二號粒子數量: <span id="nearbyParticlesTwoNumber"></span></p>
-                <p>範圍內的三號粒子數量: <span id="nearbyParticlesThreeNumber"></span></p>
+                <div id="particle-nearby-particles"><!-- 動態生成的粒子範圍內的{i}號粒子數量 --></div>
+                <!-- 
+                let nearbyParticlesP = "";
+                let nearbyParticlesNumber = [];
+                for (let i = 0; i < particleGroups.length; i++) {
+                    nearbyParticlesNumber.push(particleGroups[i].nearbyParticles.length);
+                }
+                for (let i = 0; i < particleGroups.length; i++) {
+                    nearbyParticlesP += "<p>範圍內的{i}號粒子數量: {nearbyParticlesNumber[i]}</p>";
+                }
+                -->
             </div>
         </div>
         <div>
@@ -667,7 +573,48 @@
     <script>
         // 創建 Web Worker
         const worker = new Worker('particleWorker.js');
-
+        // 用戶可控制數據的初始化
+        const gameState = {
+            // 粒子系統基本設置
+            particleTypes: 3,
+            particleCounts: [250, 250, 250],
+            particleColors: [
+                'hsl(0, 100%, 50%)',   // 紅色
+                'hsl(120, 100%, 50%)', // 綠色
+                'hsl(240, 100%, 50%)'  // 藍色
+            ],
+            
+            // 交互矩陣
+            forceMatrix: [
+                [1, 0.5, 0],
+                [0, 1, 0.5],
+                [0.5, 0, 1]
+            ],
+            distanceMatrix: [
+                [300, 300, 300],
+                [300, 300, 300],
+                [300, 300, 300]
+            ],
+            
+            // 物理參數
+            tHalf: 0.040,         // 摩擦半衰期
+            dt: 1/144,           // 時間步長
+            
+            // 顯示設置
+            isThrough: false,     // 無邊界模式
+            showGrid: false,      // 顯示網格
+            cellSize: 50,         // 網格大小
+            
+            // 滑鼠交互
+            mouseForce: 10,
+            
+            // 其他設置
+            setectGridDistance: 250,
+            enableParticleAffcetRadiusShow: false,
+            
+            // 更新控制
+            updateInterval: 16.66    // 約 60 FPS
+        };
         document.addEventListener('DOMContentLoaded', () => {
             const canvas2d = document.getElementById("board2d");
             const ctx = canvas2d.getContext("2d");
@@ -903,31 +850,32 @@
 
             // 初始化遊戲函數修改
             function initGame() {
-                performanceData.totalTimeAll = [];
-                performanceData.gridResetTimeAll = [];
-                performanceData.getNearbyTimeAll = [];
-                performanceData.gAffectCalcTimeAll = [];
-                performanceData.positionUpdateTimeAll = [];
-                performanceData.totalTimeMax = 0;
-                performanceData.gridResetTimeMax = 0;
-                performanceData.getNearbyTimeMax = 0;
-                performanceData.gAffectCalcTimeMax = 0;
-                performanceData.positionUpdateTimeMax = 0;
-                const oneCount = parseInt(document.getElementById('one-particles').value);
-                const twoCount = parseInt(document.getElementById('two-particles').value);
-                const threeCount = parseInt(document.getElementById('three-particles').value);
+                performanceData = {
+                    totalTime: 0,
+                    totalTimeAll: [],
+                    totalTimeMax: 0,
+                    gridResetTime: 0,
+                    gridResetTimeAll: [],
+                    gridResetTimeMax: 0,
+                    getNearbyTime: 0,
+                    getNearbyTimeAll: [],
+                    getNearbyTimeMax: 0,
+                    gAffectCalcTime: 0,
+                    gAffectCalcTimeAll: [],
+                    gAffectCalcTimeMax: 0,
+                    positionUpdateTime: 0,
+                    positionUpdateTimeAll: [],
+                    positionUpdateTimeMax: 0
+                };
                 worker.postMessage({
                     type: 'init',
-                    oneCount,
-                    twoCount,
-                    threeCount,
+                    particleCounts: gameState.particleCounts,
                     canvasWidth: canvas2d.width,
                     canvasHeight: canvas2d.height,
-                    colors: {
-                        one: document.getElementById('one-color').value,
-                        two: document.getElementById('two-color').value,
-                        three: document.getElementById('three-color').value
-                    }
+                    particleColors: gameState.particleColors,
+                    particleTypes: gameState.particleTypes,
+                    performanceData: performanceData,
+                    gridSize: gameState.cellSize
                 });
             }
 
@@ -1091,12 +1039,14 @@
                     performanceData.getNearbyTime = e.data.performanceData.getNearbyTime
                     performanceData.gAffectCalcTime = e.data.performanceData.gAffectCalcTime;
                     performanceData.positionUpdateTime = e.data.performanceData.positionUpdateTime;
-                    nearbyParticlesOne = e.data.nearbyParticlesOne;
-                    nearbyParticlesTwo = e.data.nearbyParticlesTwo;
-                    nearbyParticlesThree = e.data.nearbyParticlesThree;
-                    document.getElementById('nearbyParticlesOneNumber').textContent = nearbyParticlesOne.length;
-                    document.getElementById('nearbyParticlesTwoNumber').textContent = nearbyParticlesTwo.length;
-                    document.getElementById('nearbyParticlesThreeNumber').textContent = nearbyParticlesThree.length;
+                    if (enableParticleAffcetRadiusShow){
+                        nearbyParticlesList = e.data.nearbyParticlesList;
+                        for (let i = 0; i < nearbyParticlesList.length; i++) {
+                            if (nearbyParticlesList[i].type === 1) {
+                                document.getElementById('nearbyParticlesOneNumber').textContent = nearbyParticlesOne.length
+                            }
+                        }
+                    }
                     // 更新所選單元格的顯示
                     if (gridData.selectedCell) {
                         document.getElementById('selected-cell').textContent = `x: ${gridData.selectedCell.x}, y: ${gridData.selectedCell.y}`;
@@ -1112,44 +1062,28 @@
 
             // 更新規則
             function updateRules() {
-                const rules = {};
-                document.querySelectorAll('input[type="range"].randomizable').forEach(slider => {
-                    rules[slider.id] = parseFloat(slider.value);
+                // 使用 gameState 中的矩陣數據
+                worker.postMessage({
+                    type: 'updateRules',
+                    forceMatrix: gameState.forceMatrix,
+                    distanceMatrix: gameState.distanceMatrix
                 });
-                worker.postMessage({ type: 'updateRules', rules });
             }
 
-            // 為所滑塊和數字輸入框添加事件監聽器
-            document.querySelectorAll('input[type="range"]').forEach(slider => {
-                const numberInput = document.getElementById(slider.id + '-number');
-                slider.addEventListener('input', () => {
-                    numberInput.value = slider.value;
-                    if (slider.className.includes('rules')) {
-                        updateRules();
-                    }
-                });
-                numberInput.addEventListener('input', () => {
-                    slider.value = numberInput.value;
-                    if (slider.className.includes('rules')) {
-                        updateRules();
-                    }
-                });
-            });
+            
+            
 
             // 隨機化值
             function randomizeValues() {
-                document.querySelectorAll('input[type="range"].randomizable').forEach(slider => {
-                    const numberInput = document.getElementById(slider.id + '-number');
-                    if (slider.id.endsWith('-distance')) {
-                        const value = Math.floor(Math.random() * (300 - 10 + 1)) + 10;
-                        slider.value = value;
-                        numberInput.value = value;
-                    } else {
-                        const value = (Math.random() * 2 - 1).toFixed(1);
-                        slider.value = value;
-                        numberInput.value = value;
-                    }
-                    slider.dispatchEvent(new Event('input'));
+                document.querySelectorAll('.particle-force').forEach(p => {
+                    const value = (Math.random() * 2 - 1).toFixed(1);
+                    p.value = value;
+                    p.dispatchEvent(new Event('input'));
+                });
+                document.querySelectorAll('.particle-distance').forEach(p => {
+                    const value = Math.floor(Math.random() * (300 - 10 + 1)) + 10;
+                    p.value = value;
+                    p.dispatchEvent(new Event('input'));
                 });
                 updateRules();
             }
@@ -1190,19 +1124,22 @@
             function exportRules() {
                 const rules = {};
                 // 添加規則
-                document.querySelectorAll('input[type="range"].randomizable').forEach(slider => {
-                    rules[slider.id] = parseFloat(slider.value);
-                });
+                rules['force'] = gameState.forceMatrix;
+                rules['distance'] = gameState.distanceMatrix;
                 // 添加粒子數量
-                ['one-particles', 'two-particles', 'three-particles'].forEach(id => {
-                    rules[id] = parseInt(document.getElementById(id).value);
-                });
+                rules['particleCounts'] = gameState.particleCounts;
+                // 添加粒子類型
+                rules['particleTypes'] = gameState.particleTypes;
+                // 添加粒子顏色
+                rules['particleColors'] = gameState.particleColors;
                 // 添加穿透模式狀態
                 rules['isThrough'] = document.getElementById('isThrough').checked;
+                rules['tHalf'] = gameState.tHalf;
+                rules['dt'] = gameState.dt;
+                rules['mouseForce'] = gameState.mouseForce;
+                rules['cellSize'] = gameState.cellSize;
+
                 // 添加顏色
-                rules['one-color'] = document.getElementById('one-color').value;
-                rules['two-color'] = document.getElementById('two-color').value;
-                rules['three-color'] = document.getElementById('three-color').value;
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(rules));
                 const downloadAnchorNode = document.createElement('a');
                 downloadAnchorNode.setAttribute("href", dataStr);
@@ -1233,21 +1170,26 @@
                                 const throughCheckbox = document.getElementById('isThrough');
                                 throughCheckbox.checked = rules[id];
                                 throughCheckbox.dispatchEvent(new Event('change'));
-                            } else if (id === 'one-color' || id === 'red-color') {
-                                document.getElementById('one-color').value = rules[id];
-                            } else if (id === 'two-color' || id === 'blue-color') {
-                                document.getElementById('two-color').value = rules[id];
-                            } else if (id === 'three-color' || id === 'green-color') {
-                                document.getElementById('three-color').value = rules[id];
-                            } else {
-                                const slider = document.getElementById(id);
-                                const numberInput = document.getElementById(id + '-number');
-                                if (slider && numberInput) {
-                                    slider.value = rules[id];
-                                    numberInput.value = rules[id];
-                                    slider.dispatchEvent(new Event('input'));
-                                }
+                            } else if (id === 'particleCounts') {
+                                gameState.particleCounts = rules[id];
+                            } else if (id === 'particleTypes') {
+                                gameState.particleTypes = rules[id];
+                            } else if (id === 'particleColors') {
+                                gameState.particleColors = rules[id];
+                            } else if (id === 'tHalf') {
+                                gameState.tHalf = rules[id];
+                            } else if (id === 'dt') {
+                                gameState.dt = rules[id];
+                            } else if (id === 'mouseForce') {
+                                gameState.mouseForce = rules[id];
+                            } else if (id === 'cellSize') {
+                                gameState.cellSize = rules[id];
+                            } else if (id === 'forceMatrix') {
+                                gameState.forceMatrix = rules[id];
+                            } else if (id === 'distanceMatrix') {
+                                gameState.distanceMatrix = rules[id];
                             }
+                            updateHTML();
                         });
                         updateRules();
                         if (shouldRestart) {
@@ -1260,35 +1202,20 @@
 
             // 更新顏色
             function updateColors() {
-                const oneColor = document.getElementById('one-color').value;
-                const twoColor = document.getElementById('two-color').value;
-                const threeColor = document.getElementById('three-color').value;
-                const One = document.querySelectorAll('.one');
-                const Two = document.querySelectorAll('.two');
-                const Three = document.querySelectorAll('.three');
-                // 更新文字填充顏色
-                One.forEach(label => label.style.webkitTextFillColor = oneColor);
-                Two.forEach(label => label.style.webkitTextFillColor = twoColor);
-                Three.forEach(label => label.style.webkitTextFillColor = threeColor);
-                
+                //console.log(`index.html: gameState.particleColors: ${gameState.particleColors}`);
                 worker.postMessage({
                     type: 'updateColors',
-                    colors: {
-                        one: oneColor,
-                        two: twoColor,
-                        three: threeColor
-                    }
+                    particleColors: gameState.particleColors
                 });
             }
 
-            // 為顏色選擇器添加事件監聽器
-            document.getElementById('one-color').addEventListener('input', updateColors);
-            document.getElementById('two-color').addEventListener('input', updateColors);
-            document.getElementById('three-color').addEventListener('input', updateColors);
-
+            // 為匯出規則添加事件監聽器
             document.getElementById('export-rules').addEventListener('click', exportRules);
+            // 為導入規則添加事件監聽器
             document.getElementById('import-rules').addEventListener('click', () => importRules(false));
+            // 為導入規則並重新開始添加事件監聽器
             document.getElementById('import-rules-and-restart').addEventListener('click', () => importRules(true));
+            // 為導入文件添加事件監聽器
             document.getElementById('import-file').addEventListener('change', handleFileSelect);
 
             let mouseX = 0;
@@ -1361,6 +1288,28 @@
                 }
             }
 
+            function updateMouseForce(){
+                worker.postMessage({ type: 'updateMouseForce', force: gameState.mouseForce });
+            }
+            function updateCellSize(){
+                worker.postMessage({ type: 'updateCellSize', size: gameState.cellSize });
+            }
+            function updateSetectGridDistance(){
+                worker.postMessage({ type: 'updateSetectGridDistance', distance: gameState.setectGridDistance });
+            }
+            function updateUpdateInterval(){
+                worker.postMessage({ type: 'updateUpdateInterval', interval: gameState.updateInterval });
+            }
+            
+            function updateEveryThing(){
+                updateRules();
+                updateColors();
+                updateMouseForce();
+                updateCellSize();
+                updateSetectGridDistance();
+                updateUpdateInterval();
+            }
+
             // 為滑鼠力量滑塊添加事件監聽器
             const mouseForceSlider = document.getElementById('mouse-force');
             const mouseForceNumber = document.getElementById('mouse-force-number');
@@ -1375,9 +1324,11 @@
             const cellSizeSlider = document.getElementById('cell-size');
             const cellSizeNumber = document.getElementById('cell-size-number');
             cellSizeSlider.addEventListener('input', () => {
+                cellSizeNumber.value = cellSizeSlider.value;
                 worker.postMessage({ type: 'updateCellSize', size: parseInt(cellSizeSlider.value) });
             }); 
             cellSizeNumber.addEventListener('input', () => {
+                cellSizeSlider.value = cellSizeNumber.value;
                 worker.postMessage({ type: 'updateCellSize', size: parseInt(cellSizeNumber.value) });
             });
 
@@ -1385,22 +1336,34 @@
             const setectGridDistanceSlider = document.getElementById('setectGridDistance');
             const setectGridDistanceNumber = document.getElementById('setectGridDistance-number');
             setectGridDistanceSlider.addEventListener('input', () => {
+                setectGridDistanceNumber.value = setectGridDistanceSlider.value;
                 worker.postMessage({ type: 'updateSetectGridDistance', distance: parseInt(setectGridDistanceSlider.value) });
             });
             setectGridDistanceNumber.addEventListener('input', () => {
+                setectGridDistanceSlider.value = setectGridDistanceNumber.value;
                 worker.postMessage({ type: 'updateSetectGridDistance', distance: parseInt(setectGridDistanceNumber.value) });
             })
 
             // 為更新間隔滑塊添加事件監聽器
             const updateIntervalSlider = document.getElementById('updateInterval');
             const updateIntervalNumber = document.getElementById('updateInterval-number');
+            const updateIntervalUnit = document.getElementById('updateInterval-unit');
             updateIntervalSlider.addEventListener('input', () => {
+                updateIntervalNumber.value = updateIntervalSlider.value;
+                updateIntervalUnit.selectedIndex = [...updateIntervalUnit.options].reduce((closest, option) => {
+                    const distance = Math.abs(option.value - updateIntervalSlider.value);
+                    return (distance < closest.distance) ? {option: option, distance: distance} : closest;
+                }, {option: null, distance: Infinity}).option.index;
                 worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalSlider.value) });
             });
             updateIntervalNumber.addEventListener('input', () => {
+                updateIntervalSlider.value = updateIntervalNumber.value;
+                updateIntervalUnit.selectedIndex = [...updateIntervalUnit.options].reduce((closest, option) => {
+                    const distance = Math.abs(option.value - updateIntervalNumber.value);
+                    return (distance < closest.distance) ? {option: option, distance: distance} : closest;
+                }, {option: null, distance: Infinity}).option.index;
                 worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalNumber.value) });
             }); 
-            const updateIntervalUnit = document.getElementById('updateInterval-unit');
             updateIntervalUnit.addEventListener('change', () => {
                 worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalUnit.value) });
                 updateIntervalSlider.value = updateIntervalUnit.value;
@@ -1419,11 +1382,7 @@
                 document.getElementById('t-half').value = tHalf;
                 worker.postMessage({ type: 'updateTHalf', tHalf: tHalf });
             });
-
-            // 初始化遊戲並開始更新循環
-            randomizeAndRestart();
-            update()
-
+            
             // 添加網格顯示切換
             const showGridCheckbox = document.getElementById('showGrid');
             showGridCheckbox.addEventListener('change', () => {
@@ -1437,6 +1396,7 @@
                 worker.postMessage({ type: 'toggleParticleAffcetRadiusShow', enable: enableParticleAffcetRadiusShow });
             });
 
+            /*
             const isOneRadiusShowCheckbox = document.getElementById('isOneRadiusShow');
             isOneRadiusShowCheckbox.addEventListener('change', () => {
                 isOneRadiusShow = isOneRadiusShowCheckbox.checked;
@@ -1449,6 +1409,66 @@
             isThreeRadiusShowCheckbox.addEventListener('change', () => {
                 isThreeRadiusShow = isThreeRadiusShowCheckbox.checked;
             });
+            */
+           
+            function initializeMatrices(types, oldForceMatrix, oldDistanceMatrix) {
+                forceMatrix = [];
+                for (let i = 0; i < types; i++) {
+                    forceMatrix.push([]);
+                    for (let j = 0; j < types; j++) {
+                        // Keep old force value if available, otherwise use 0
+                        forceMatrix[i].push(oldForceMatrix && i < oldForceMatrix.length && j < oldForceMatrix[i].length ? 
+                            oldForceMatrix[i][j] : Math.random()*2-1);
+                    }
+                }
+                gameState.forceMatrix = forceMatrix;
+                //console.log(`index.html: forceMatrix: ${forceMatrix}`);
+                
+                distanceMatrix = [];
+                for (let i = 0; i < types; i++) {
+                    distanceMatrix.push([]);
+                    for (let j = 0; j < types; j++) {
+                        // Keep old distance value if available, otherwise use 100
+                        distanceMatrix[i].push(oldDistanceMatrix && i < oldDistanceMatrix.length && j < oldDistanceMatrix[i].length ?
+                            oldDistanceMatrix[i][j] : 150);
+                    }
+                }
+                gameState.distanceMatrix = distanceMatrix;
+                //console.log(`index.html: distanceMatrix: ${distanceMatrix}`);
+                
+                particleGroups = [];
+                for (let i = 0; i < types; i++) {
+                    particleGroups.push([]);
+                }
+                gameState.particleGroups = particleGroups;
+                //console.log(`index.html: particleGroups: ${particleGroups}`);
+            }
+            function initializeColors(types) {
+                particleColors = [];
+                for (let i = 0; i < types; i++) {
+                    particleColors.push(`hsl(${i * 360 / types}, 100%, 50%)`);
+                }
+                gameState.particleColors = particleColors;
+            }
+            function initializeParticleCounts(types) {
+                particleCounts = [];
+                for (let i = 0; i < types; i++) {
+                    particleCounts.push(gameState.particleCounts[i] || 250);
+                }
+                gameState.particleCounts = particleCounts;
+            }
+            // 添加粒子類型數量監聽器
+            document.getElementById('particle-types').addEventListener('input', (e) => {
+                const types = parseInt(e.target.value);
+                gameState.particleTypes = types;
+                initializeColors(types);
+                initializeMatrices(types, gameState.forceMatrix, gameState.distanceMatrix);
+                initializeParticleCounts(types);
+                updateParticleSystem();
+                updateEveryThing();
+                initGame();
+            });
+
             // 修改單元格選擇功能
             canvas2d.addEventListener('click', (e) => {
                 if (showGrid) {
@@ -1478,9 +1498,17 @@
                     if (selectedParticle) {
                         selectedParticleId = selectedParticle.id;
                         selectedParticleType = selectedParticle.type;
+                        nearbyParticlesNumber = [];
+                        for (let i = 0; i < particleGroups.length; i++) {
+                            if (particleGroups[i].type === selectedParticleType) {
+                                nearbyParticlesNumber[i] = particleGroups[i].nearbyParticles.length;
+                            }
+                        }
+                        /*
                         radiusOne = document.getElementById(selectedParticleType+'-one-distance');
                         radiusTwo = document.getElementById(selectedParticleType+'-two-distance');
                         radiusThree = document.getElementById(selectedParticleType+'-three-distance');
+                        */
                         document.getElementById('selectedParticleId').textContent = selectedParticleId;
                         // 請求 worker 計算附近的粒子
                         worker.postMessage({ 
@@ -1499,6 +1527,220 @@
                     }
                 }
             });
+
+            // 初始化遊戲並開始更新循環
+            updateParticleSystem();
+            updateEveryThing();
+            initGame();
+            update();
+
+            // 創建粒子類型控制界面
+            function createParticleTypeControls(type, total, min, max, step, count) {
+                const defaultColor = gameState.particleColors[type];
+                
+                return `
+                    <div class="particle-type" data-type="${type}">
+                        <h4>類型 ${type + 1}</h4>
+                        <div>
+                            <label>數量:</label>
+                            <input type="range" class="particle-count" min="${min}" max="${max}" step="${step}" value="${count}">
+                            <input type="number" class="particle-count-number" min="${min}" max="${max}" step="${step}" onkeyup="if(this.value>${max}){this.value=${max}}else if(this.value<${min}){this.value=${min}}" value="${count}">
+                        </div>
+                        <div>
+                            <label>顏色:</label>
+                            <div class="color-inputs">
+                                <input type="color" class="particle-color" value="${hslToHex(defaultColor)}">
+                                <span class="hsl-display">${defaultColor}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function createMatrixTable(types, matrixType, min, max, step, matrix){
+                let html = '<table class="matrix-container">';
+                for (let i = 0; i < types; i++) {
+                    html += `<tr>`;
+                    for (let j = 0; j < types; j++) {
+                        html += `<td><input type="number" class="matrix-input ${matrixType}" data-i="${i}" data-j="${j}" min="${min}" max="${max}" step="${step}" onkeyup="if(this.value>${max}){this.value=${max}}else if(this.value<${min}){this.value=${min}}" value="${matrix[i][j]}"></td>`;
+                    }
+                    html += `</tr>`;
+                }
+                html += '</table>';
+                return html;
+            }
+
+            // 更新粒子系統
+            function updateParticleSystem() {
+                const types = gameState.particleTypes;
+                const particleSettings = document.getElementById('particle-settings');
+                const interactionMatrix = document.getElementById('interaction-matrix');
+                
+                // 更新粒子類型控制
+                particleSettings.innerHTML = '';
+                for (let i = 0; i < types; i++) {
+                    particleSettings.innerHTML += createParticleTypeControls(i, types, 0, 500, 10, gameState.particleCounts[i]);
+                }
+                
+                // 更新交互矩陣
+                interactionMatrix.innerHTML = `
+                    <div class="matrix-table">  
+                        <h4>粒子引力</h4>
+                        <p class="description">數值越大，粒子越容易聚集在一起</p>
+                        ${createMatrixTable(types, 'particle-force', -1, 1, 0.05, gameState.forceMatrix)}
+                    </div>
+
+                    <div class="matrix-table">
+                        <h4>粒子距離</h4>
+                        <p class="description">數值越大，引力范圍越大</p>
+                        ${createMatrixTable(types, 'particle-distance', 10, 300, 10, gameState.distanceMatrix)}
+                    </div>
+                `;
+                
+                // 添加事件監聽器
+                setupParticleControlEventListeners();
+                setupMatrixEventListeners();
+                
+                // 重新初始化粒子系統
+                initGame();
+            }
+            // 設置粒子控制的事件監聽器
+            function setupParticleControlEventListeners() {
+                // 數量控制
+                document.querySelectorAll('.particle-count').forEach(input => {
+                    const numberInput = input.parentElement.querySelector('.particle-count-number');
+                    const type = parseInt(input.closest('.particle-type').dataset.type);
+                    
+                    input.addEventListener('input', (e) => {
+                        const value = e.target.value;
+                        numberInput.value = value;
+                        gameState.particleCounts[type] = value;
+                        initGame();
+                    });
+                    
+                    numberInput.addEventListener('input', (e) => {
+                        const value = Math.min(Math.max(parseFloat(e.target.value) || 0, parseFloat(e.target.min)), parseFloat(e.target.max));
+                        input.value = value;
+                        gameState.particleCounts[type] = value;
+                        initGame();
+                    });
+                });
+
+                // 顏色控制
+                document.querySelectorAll('.particle-color').forEach(input => {
+                    const type = parseInt(input.closest('.particle-type').dataset.type);
+                    const hslDisplay = input.parentElement.querySelector('.hsl-display');
+                    
+                    input.addEventListener('input', (e) => {
+                        const hsl = hexToHsl(e.target.value);
+                        gameState.particleColors[type] = hsl;
+                        hslDisplay.textContent = hsl;
+                        worker.postMessage({
+                            type: 'updateColors',
+                            particleColors: gameState.particleColors
+                        });
+                    });
+                });
+            }
+            // 設置矩陣輸入的事件監聽器
+            function setupMatrixEventListeners() {
+                document.querySelectorAll('.particle-force').forEach(input => {
+                    input.addEventListener('input', (e) => {
+                        const force = Math.min(Math.max(parseFloat(e.target.value) || 0, parseFloat(e.target.min)), parseFloat(e.target.max));
+                        const i = parseInt(e.target.dataset.i);
+                        const j = parseInt(e.target.dataset.j);
+                        gameState.forceMatrix[i][j] = parseFloat(force);
+                        updateRules();
+                    });
+                });
+
+                document.querySelectorAll('.particle-distance').forEach(input => {
+                    input.addEventListener('input', (e) => {
+                        const i = parseInt(e.target.dataset.i);
+                        const j = parseInt(e.target.dataset.j);
+                        const distance = Math.min(Math.max(parseFloat(e.target.value) || 0, parseFloat(e.target.min)), parseFloat(e.target.max));
+                        gameState.distanceMatrix[i][j] = parseFloat(distance);
+                        updateRules();
+                    });
+                });
+            }
+
+            // HSL 轉 Hex 顏色函數
+            function hslToHex(hsl) {
+                const match = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+                if (!match) return '#000000';
+                
+                const h = parseInt(match[1]) / 360;
+                const s = parseInt(match[2]) / 100;
+                const l = parseInt(match[3]) / 100;
+                
+                let r, g, b;
+                
+                if (s === 0) {
+                    r = g = b = l;
+                } else {
+                    const hue2rgb = (p, q, t) => {
+                        if (t < 0) t += 1;
+                        if (t > 1) t -= 1;
+                        if (t < 1/6) return p + (q - p) * 6 * t;
+                        if (t < 1/2) return q;
+                        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                        return p;
+                    };
+                    
+                    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                    const p = 2 * l - q;
+                    
+                    r = hue2rgb(p, q, h + 1/3);
+                    g = hue2rgb(p, q, h);
+                    b = hue2rgb(p, q, h - 1/3);
+                }
+                
+                const toHex = x => {
+                    const hex = Math.round(x * 255).toString(16);
+                    return hex.length === 1 ? '0' + hex : hex;
+                };
+                
+                return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+            }
+
+            // Hex 轉 HSL 顏色函數
+            function hexToHsl(hex) {
+                // 移除 # 號（如果有的話）
+                hex = hex.replace(/^#/, '');
+                
+                // 解析 RGB 值
+                const bigint = parseInt(hex, 16);
+                const r = (bigint >> 16) & 255;
+                const g = (bigint >> 8) & 255;
+                const b = bigint & 255;
+                
+                // 轉換為 0-1 範圍
+                const rr = r / 255;
+                const gg = g / 255;
+                const bb = b / 255;
+                
+                const max = Math.max(rr, gg, bb);
+                const min = Math.min(rr, gg, bb);
+                let h, s, l = (max + min) / 2;
+                
+                if (max === min) {
+                    h = s = 0;
+                } else {
+                    const d = max - min;
+                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                    
+                    switch (max) {
+                        case rr: h = (gg - bb) / d + (gg < bb ? 6 : 0); break;
+                        case gg: h = (bb - rr) / d + 2; break;
+                        case bb: h = (rr - gg) / d + 4; break;
+                    }
+                    
+                    h /= 6;
+                }
+                
+                return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
+            }
         });
     </script>
 </body>
