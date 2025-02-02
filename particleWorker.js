@@ -8,9 +8,12 @@
 // 粒子系統的常量和變量 
 let particles = [];  // 存儲所有粒子的數組
 let particleGroups = [];  // 存儲不同類型的粒子數組
+let particleGrids = [];  // 存儲不同類型的粒子網格
+// 創建全局網格對象
+let grid;
 // 畫布相關
 let canvas = { width: 0, height: 0 };  // 畫布尺寸
-const ballRadius = 0;  // 粒子半徑
+let ballRadius = 0;  // 粒子半徑
 // 穿透相關
 let isThrough = false;  // 是否允許粒子穿過邊界
 let offsetsList = isThrough?[
@@ -52,8 +55,9 @@ let canUpdate = false;
 let isUpdating = false;
 // 粒子交互相關
 let enableParticleAffcetRadiusShow = false;
+let RadiusShow = [];
 // 更新間隔
-let updateInterval = 0; // 預設速度設為 16 毫秒，約等於 60 FPS
+let updateInterval = 16.66; // 預設速度設為 16.66 毫秒，約等於 60 FPS
 // ^^^^^^^^純變數宣告^^^^^^^^   
 // -----------------------------
 
@@ -142,6 +146,7 @@ class Grid {
         this.canvasWidth = width;
         this.canvasHeight = height;
         isNotGridPerfectlyFit = (width % this.cellSize == 0 && height % this.cellSize == 0)?0:1;
+        //console.log(isNotGridPerfectlyFit);
         this.width = Math.ceil(width / this.cellSize);
         this.height = Math.ceil(height / this.cellSize);
         this.cells = new Array(this.width * this.height).fill().map(() => []);
@@ -195,18 +200,22 @@ class Grid {
                     let wrappedX = (x + this.width) % this.width;
                     // 修改這裡：先獲取網格單元，然後再進行操作
                     let cell = this.cells[wrappedY * this.width + wrappedX];
-                    nearby.push(...cell);
+                    nearby.push.apply(nearby, cell);
                     // 為每個粒子添加對應的偏移
-                    cell.forEach(() => offsets.push({'dx': dx*this.canvasWidth, 'dy': dy*this.canvasHeight}));
+                    for (let i = 0; i < cell.length; i++) {
+                        offsets.push({'dx': dx*this.canvasWidth, 'dy': dy*this.canvasHeight});
+                    }
                 }
             }
         } else {
             for (let y = Math.max(0, cellY - radiusCells); y <= Math.min(this.height - 1, cellY + radiusCells); y++) {
                 for (let x = Math.max(0, cellX - radiusCells); x <= Math.min(this.width - 1, cellX + radiusCells); x++) {
                     let cell = this.cells[y * this.width + x]
-                    nearby.push(...cell);
+                    nearby.push.apply(nearby, cell);
                     // 為每個粒子添加對應的偏移
-                    cell.forEach(() => offsets.push({'dx': 0, 'dy': 0}));
+                    for (let i = 0; i < cell.length; i++) {
+                        offsets.push({'dx': 0, 'dy': 0});
+                    }
                 }
             }
         }
@@ -216,75 +225,91 @@ class Grid {
 
     getNearbyCells(cellX, cellY, radius) {
         const nearbyCells = [];
-        const radiusCells = Math.ceil(radius / this.cellSize)+isNotGridPerfectlyFit;
-        
-        for (let y = cellY - radiusCells; y <= cellY + radiusCells; y++) {
-            for (let x = cellX - radiusCells; x <= cellX + radiusCells; x++) {
-                if (isThrough) {
-                    const wrappedY = (y + this.height) % this.height;
-                    const wrappedX = (x + this.width) % this.width;
-                    nearbyCells.push({x: wrappedX, y: wrappedY});
-                } else {
-                    if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-                        nearbyCells.push({x, y});
-                    }
+        let radiusCells = Math.ceil(radius / this.cellSize);
+        if (isThrough) {
+            radiusCells = radiusCells + isNotGridPerfectlyFit;
+            for (let y = cellY - radiusCells; y <= cellY + radiusCells; y++) {
+                for (let x = cellX - radiusCells; x <= cellX + radiusCells; x++) {
+                        const wrappedY = (y + this.height) % this.height;
+                        const wrappedX = (x + this.width) % this.width;
+                        nearbyCells.push({x: wrappedX, y: wrappedY});
+                }
+            }
+        } else {
+            for (let y = Math.max(0, cellY - radiusCells); y <= Math.min(this.height - 1, cellY + radiusCells); y++) {
+                for (let x = Math.max(0, cellX - radiusCells); x <= Math.min(this.width - 1, cellX + radiusCells); x++) {
+                    nearbyCells.push({x, y});
                 }
             }
         }
+        
         return nearbyCells;
     }
 }
 
-// 創建全局網格對象
-let grid;
 
 // 修改 rule_grid 函數使用矩陣
-function rule_grid(type1, type2) {
-    const r = distanceMatrix[type1][type2];
-    const g = forceMatrix[type1][type2];
-    const r2 = r * r;
+function rule_grid(type1, types) {
+    // 取得 被施力粒子 群
     const p1 = particleGroups[type1];
-    const p2 = particleGroups[type2];
-    
-    const gridResetStartTime = performance.now();
-    grid.clear();
-    p2.forEach(b => grid.add(b));
-    performanceData.gridResetTime += performance.now() - gridResetStartTime;
-    
+    // 計算摩擦力
+    const frictionFactor = calculateFrictionFactor(currentDt, currentTHalf);
+    // 被施力粒子 群 循環 
     for (let i = 0; i < p1.length; i++) {
-        let fx = 0, fy = 0;
+        // 取得 被施力粒子
         const a = p1[i];
-        const getNearbyStartTime = performance.now();
-        const nearbylist = grid.getNearby(a, r, isThrough);
-        performanceData.getNearbyTime += performance.now() - getNearbyStartTime;
-        const nearbyParticles = nearbylist[0];
-        const offsets = nearbylist[1];
-        
-        const gAffectCalcStartTime = performance.now();
-        for (let j = 0; j < nearbyParticles.length; j++) {
-            const b = nearbyParticles[j];
-            const offset = offsets[j];
-            if (a === b) continue; // 跳過自身
-            const dx = (b.x + offset.dx) - a.x;
-            const dy = (b.y + offset.dy) - a.y;
-            const distSquared = dx * dx + dy * dy;
-            
-            if (distSquared >= r2) continue;
-            
-            const dist = Math.sqrt(distSquared);
-            const F = calculateForce(dist/r, g);
-            
-            fx += F * dx / dist;
-            fy += F * dy / dist;   
-        }
-        fx *= r * 10;
-        fy *= r * 10;
-        // 更新速度（應用力和摩擦力）
-        const frictionFactor = calculateFrictionFactor(currentDt, currentTHalf);
+        // 更新速度（應用摩擦力）
         a.vx *= frictionFactor;
         a.vy *= frictionFactor;
-        a.vx += fx * currentDt;
-        a.vy += fy * currentDt;
+        // 計算應用力
+        let rfx = 0, rfy = 0;
+        // 粒子種類循環 
+        for (let t = 0; t < types; t++) {
+            // 初始化 fx, fy
+            let fx = 0, fy = 0;
+            // 取得 被施力粒子 和 施力粒子 間的距離和引力
+            const r = distanceMatrix[type1][t];
+            const r2 = r * r;
+            const g = forceMatrix[type1][t];
+            // 取得 被施力粒子 附近的施力粒子 及 其偏移值 
+            const getNearbyStartTime = performance.now();
+            const nearbylist = particleGrids[t].getNearby(a, r, isThrough);
+            performanceData.getNearbyTime += performance.now() - getNearbyStartTime;
+            // 將 施力粒子 群 附近的粒子 及 其偏移值 賦值to變數
+            const nearbyParticles = nearbylist[0];
+            const offsets = nearbylist[1];
+            // 計算 施力粒子 群 對 被施力粒子 的應用力
+            // 施力粒子 群 循環 
+            let gAffectCalcStartTime = performance.now();
+            for (let j = 0; j < nearbyParticles.length; j++) {
+                // 取得 施力粒子
+                const b = nearbyParticles[j];
+                // 取得 施力粒子 的偏移值
+                const offset = offsets[j];
+                // 跳過自身
+                if (a === b) continue;
+                // 計算 施力粒子 和 被施力粒子 之間的距離 
+                const dx = (b.x + offset.dx) - a.x;
+                const dy = (b.y + offset.dy) - a.y;
+                const distSquared = dx * dx + dy * dy;
+                // 如果距離大於 施力粒子 群 的半徑，則跳過
+                if (distSquared >= r2) continue;
+                // 開方 施力粒子 和 被施力粒子 之間的距離
+                const dist = Math.sqrt(distSquared);
+                // 計算 施力粒子 對 被施力粒子 的應用力
+                const F = calculateForce(dist/r, g);
+                fx += F * dx / dist;
+                fy += F * dy / dist; 
+            }
+            // 整合 施力粒子 群 對 被施力粒子 的應用力
+            rfx += fx * r * 10;
+            rfy += fy * r * 10; 
+            performanceData.gAffectCalcTime += performance.now() - gAffectCalcStartTime;
+        }
+        gAffectCalcStartTime = performance.now();
+        // 更新速度（應用力）
+        a.vx += rfx * currentDt;
+        a.vy += rfy * currentDt;
         performanceData.gAffectCalcTime += performance.now() - gAffectCalcStartTime;
     }
 }
@@ -320,29 +345,30 @@ function rule_grid_update(p1) {
 
 // 修改 update 函數使用矩陣
 function update() {
+    const startTime = performance.now();
     // 重置性能數據
     performanceData = {
         totalTime: 0,
         gAffectCalcTime: 0,
         positionUpdateTime: 0,
         gridResetTime: 0,
-        getNearbyTime: 0
+        getNearbyTime: 0,
+        ParticleAffcetCalcTime: 0
     };
+    // 設置網格數據
     gridData = {
-        cellSize: 0,
-        width: 0,
-        height: 0,
-        selectedCell: null,
-        nearbyCells: []
+        width: grid.width,
+        height: grid.height,
+        cellSize: cellSize,
+        selectedCell: selectedCell,
+        nearbyCells: selectedCell ? grid.getNearbyCells(selectedCell.x, selectedCell.y, setectGridDistance) : []
     };
-    const startTime = performance.now();
 
     // 應用所有規則
     for (let i = 0; i < particleTypes; i++) {
-        for (let j = 0; j < particleTypes; j++) {
-            rule_grid(i, j);
-        }
+        rule_grid(i, particleTypes);
     }
+    // 更新粒子位置
     for (let i = 0; i < particleTypes; i++) {
         for (let j = 0; j < particleTypes; j++) {
             rule_grid_update(particleGroups[i]);
@@ -352,45 +378,64 @@ function update() {
     if (isMouseActive) {
         particleGroups.forEach(group => applyMouseForce(group));
     }
+    // 清空網格
+    // 將 施力粒子 群加入網格
+    const gridResetStartTime = performance.now();
+    particleGrids = addAllParticleToGrid(particleTypes, cellSize, canvas.width, canvas.height);
+    performanceData.gridResetTime += performance.now() - gridResetStartTime;
+    // 將所有粒子組合為一個數組
     particles = particleGroups.flat();
 
+    // 計算附近粒子列表
     let nearbyParticlesList = [];
+    const particleAffcetCalcTime = performance.now();
     if (selectedParticleId && enableParticleAffcetRadiusShow) {
+        // 取得 施力粒子
         let selectedParticle = particles[selectedParticleId];
+        // 取得 施力粒子 的類型
         const Ptype = selectedParticle.type;
+        // 粒子種類循環 
         for (let i = 0; i < particleTypes; i++) {
-            grid.clear();
-            particleGroups[i].forEach(b => grid.add(b));
-            const nearbylist = grid.getNearby(selectedParticle, distanceMatrix[Ptype][i], isThrough);
-            const offsets = nearbylist[1];
-            nearbyParticlesList[i] = nearbylist[0].filter((p, i) => {
-                const dx = offsets[i].dx;
-                const dy = offsets[i].dy;
-                return (p.x+dx-selectedParticle.x)*(p.x+dx-selectedParticle.x)+(p.y+dy-selectedParticle.y)*(p.y+dy-selectedParticle.y) <= distanceMatrix[Ptype][i]*distanceMatrix[Ptype][i];
-            });
-        }
-    }
+            if (RadiusShow[i]) {
+                // 取得 施力粒子 附近的粒子 及 其偏移值 
+                const nearbylist = particleGrids[i].getNearby(selectedParticle, distanceMatrix[Ptype][i], isThrough);
+                const offsets = nearbylist[1];
+                const distance = distanceMatrix[Ptype][i];
+                // 過濾出 施力粒子 附近的粒子
+                nearbyParticlesList[i] = nearbylist[0].filter((p, i) => {
+                    const dx = offsets[i].dx;
+                    const dy = offsets[i].dy;
+                    const px = p.x+dx;
+                    const py = p.y+dy;
+                    const sx = selectedParticle.x;
+                    const sy = selectedParticle.y;
 
+                    return (px-sx)*(px-sx)+(py-sy)*(py-sy) <= distance*distance;
+                });
+                //console.log(`nearbyParticlesList[${i}]: ${nearbyParticlesList[i]}`);
+            }
+
+        }
+        //console.log(nearbyParticlesList);
+    }
+    performanceData.ParticleAffcetCalcTime = performance.now() - particleAffcetCalcTime;
+    // 計算附近網格列表
     if (showGrid) {
         //isThroughconsoleLog("g"); 
-        gridData = {
-            cellSize: grid.cellSize,
-            width: grid.width,
-            height: grid.height,
-            canvasWidth: canvas.width,
-            canvasHeight: canvas.height,
-            selectedCell: selectedCell,
-            nearbyCells: selectedCell ? grid.getNearbyCells(selectedCell.x, selectedCell.y, setectGridDistance) : []
-        };
+        gridData.nearbyCells = selectedCell ? grid.getNearbyCells(selectedCell.x, selectedCell.y, setectGridDistance) : [];
         //isThroughconsoleLog("h");
     }
 
     performanceData.totalTime = performance.now() - startTime;
+    // 發送更新消息
     self.postMessage({ 
         type: 'update', 
         particles, 
+        particleGroups,
         performanceData, 
-        gridData,
+        nearbyCells: gridData.nearbyCells,
+        gridDataWidth: grid.width,
+        gridDataHeight: grid.height,
         nearbyParticlesList,
     });
 }
@@ -409,7 +454,14 @@ function applyMouseForce(particleGroup) {
         }
     }
 }
-
+function addAllParticleToGrid(Types, cellSize, canvasWidth, canvasHeight) {
+    let Grids = [];
+    for (let i = 0; i < Types; i++) {
+        Grids[i] = new Grid(cellSize, canvasWidth, canvasHeight);
+        particleGroups[i].forEach(p => Grids[i].add(p));
+    }
+    return Grids;
+}
 
 // 處理主線程發來的消息
 self.onmessage = function (e) {
@@ -422,15 +474,15 @@ self.onmessage = function (e) {
             particleTypes = e.data.particleTypes;
             particleColors = e.data.particleColors;
             particleCounts = e.data.particleCounts;
-            gridSize = e.data.gridSize;
-            
-            // 初始化網格
-            grid = new Grid(gridSize, canvas.width, canvas.height);
+            cellSize = e.data.cellSize;
             
             // 初始化矩陣和粒子
             for (let i = 0; i < particleTypes; i++) {
                 particleGroups[i] = create(particleCounts[i], particleColors[i], i);
             }
+            // 初始化網格
+            particleGrids = addAllParticleToGrid(particleTypes, cellSize, canvas.width, canvas.height);
+            grid = new Grid(cellSize, canvas.width, canvas.height);
             break;
             
         case 'updateRules':
@@ -454,7 +506,7 @@ self.onmessage = function (e) {
             canvas.width = e.data.width;
             canvas.height = e.data.height;
             if (cellSize) {
-                grid = new Grid(cellSize, canvas.width, canvas.height);
+                particleGrids = addAllParticleToGrid(particleTypes, cellSize, canvas.width, canvas.height);
             }
             break;
         case 'canUpdate':
@@ -484,12 +536,15 @@ self.onmessage = function (e) {
             // 更新網格大小
             cellSize = e.data.size;
             if (canvas.width && canvas.height) {
-                grid = new Grid(cellSize, canvas.width, canvas.height);
+                particleGrids = addAllParticleToGrid(particleTypes, cellSize, canvas.width, canvas.height);
             }
             break;
         case 'setMouseInactive':
             // 設置滑鼠為非活動狀態
             isMouseActive = false;
+            break;
+        case 'updateBallRadius':
+            ballRadius = e.data.ballRadius;
             break;
         case 'toggleGrid':
             showGrid = e.data.show;
@@ -517,15 +572,17 @@ self.onmessage = function (e) {
         case 'toggleParticleAffcetRadiusShow':
             enableParticleAffcetRadiusShow = e.data.enable;
             break;
-        case 'updateDt':
-            currentDt = e.data.dt;
-            break;
         case 'updateTHalf':
             currentTHalf = e.data.tHalf;
             break;
         case 'updateBallRadius':
             ballRadius = e.data.radius;
             break;
+        case 'updateRadiusShow':
+            RadiusShow = e.data.RadiusShow;
+            //console.log(RadiusShow);
+            break;
     }
 };
+
 

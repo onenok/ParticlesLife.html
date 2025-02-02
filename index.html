@@ -437,8 +437,8 @@
         <!-- 添加滑鼠吸引力滑塊 -->
         <div>
             <label for="mouse-force">滑鼠吸引力:</label>
-            <input type="range" id="mouse-force" min="0" max="100" step="0.1" value="50">
-            <input type="number" id="mouse-force-number" min="0" max="100" step="0.1" value="50">
+            <input type="range" id="mouse-force" min="0" max="200" step="0.1" value="100">
+            <input type="number" id="mouse-force-number" min="0" max="200" step="0.1" value="100">
         </div>
 
         <div>
@@ -460,13 +460,15 @@
                 <option value="1.38">720 UPS</option>
             </select>
             <p>UPS: Update Per Second，每秒更新次數</p>
-            <p>注意: 更新間隔越短，粒子運動越流暢，但會增加CPU負擔。</p>
+            <p>注意: 更新間隔越短，粒子運動越流暢。</p>
+            <p class="description">但如果你的電腦並不能運行到那麼短的更新間隔，那麼你的電腦就無法運行到那麼短的更新間隔。</p>
         </div>
 
         <!-- 在控制面板中添加性能數據顯示 -->
         <div id="performance-data">
             <h3>性能數據</h3>
             <p>渲染FPS: <span id="fps"></span><br>(這並不是遊戲每秒更新次數。)</p>
+            <p>遊戲UPS: <span id="gameUPS"></span><br>(這是遊戲每秒更新次數。)</p>
             <p>粒子更新總時間: 
                 <br>當前: <span id="total-time"></span> ms 
                 <br>平均: <span id="total-time-average"></span> ms
@@ -476,21 +478,34 @@
                 <br>當前: <span id="grid-reset-time"></span> ms 
                 <br>平均: <span id="grid-reset-time-average"></span> ms
                 <br>最大: <span id="grid-reset-time-max"></span> ms
+                <br>單次平均: <span id="grid-reset-time-single-average"></span> ms
+                <br>每更新執行次數: <span id="grid-reset-time-run-per-update"></span> 次
             </p>
             <p>取得附近粒子時間: 
                 <br>當前: <span id="get-nearby-time"></span> ms 
                 <br>平均: <span id="get-nearby-time-average"></span> ms
                 <br>最大: <span id="get-nearby-time-max"></span> ms
+                <br>單次平均: <span id="get-nearby-time-single-average"></span> ms
+                <br>每更新執行次數: <span id="get-nearby-time-run-per-update"></span> 次
             </p>
             <p>重力影響計算時間: 
                 <br>當前: <span id="g-Affect-Calc-time"></span> ms 
                 <br>平均: <span id="g-Affect-Calc-time-average"></span> ms
                 <br>最大: <span id="g-Affect-Calc-time-max"></span> ms
-            </p>
+                <br>單個粒子平均: <span id="g-Affect-Calc-time-single-average"></span> ms
+                <br>每更新執行次數: <span id="g-Affect-Calc-time-run-per-update"></span> 次
+                </p>
             <p>更新位置時間: 
                 <br>當前: <span id="position-update-time"></span> ms 
                 <br>平均: <span id="position-update-time-average"></span> ms
                 <br>最大: <span id="position-update-time-max"></span> ms
+                <br>單次平均: <span id="position-update-time-single-average"></span> ms
+                <br>每更新執行次數: <span id="position-update-time-run-per-update"></span> 次
+            </p>
+            <p>粒子影響範圍計算時間: 
+                <br>當前: <span id="Particle-Affect-Calc-time"></span> ms 
+                <br>平均: <span id="Particle-Affect-Calc-time-average"></span> ms
+                <br>最大: <span id="Particle-Affect-Calc-time-max"></span> ms
             </p>
         </div>
 
@@ -531,13 +546,13 @@
                     <span class="slider"></span>
                 </div>
             </div>
-            <div id="particle-affcet-radius-show">
+            <div id="particle-affcet-radius-show" class="no-background">
                 <!-- 動態生成的粒子影響範圍顯示設置 -->
             </div>
             <div>
                 <p>選中的粒子ID: <span id="selectedParticleId">無</span></p>
                 <p>選中的粒子屬性: <span id="selectedParticleProperty"></span></p>
-                <div id="particle-nearby-particles"><!-- 動態生成的粒子範圍內的{i}號粒子數量 --></div>
+                <div id="particle-nearby-particles" class="no-background"><!-- 動態生成的粒子範圍內的{i}號粒子數量 --></div>
                 <!-- 
                 let nearbyParticlesP = "";
                 let nearbyParticlesNumber = [];
@@ -563,8 +578,8 @@
             <h3>物理參數</h3>
             <div class="control-item">
                 <label for="t-half">摩擦半衰期(秒):</label>
-                <input type="range" id="t-half" min="0.01" max="0.1" step="0.01" value="0.040">
-                <input type="number" id="t-half-number" min="0.01" max="0.1" step="0.01" value="0.040">
+                <input type="range" id="t-half" min="0.001" max="0.1" step="0.001" value="0.020">
+                <input type="number" id="t-half-number" min="0.001" max="0.1" step="0.001" value="0.020">
             </div>
         </div>
     </div>
@@ -583,7 +598,7 @@
                 'hsl(120, 100%, 50%)', // 綠色
                 'hsl(240, 100%, 50%)'  // 藍色
             ],
-            
+            particleGroups: [],
             // 交互矩陣
             forceMatrix: [
                 [1, 0.5, 0],
@@ -597,13 +612,19 @@
             ],
             
             // 物理參數
-            tHalf: 0.040,         // 摩擦半衰期
+            tHalf: 0.020,         // 摩擦半衰期
             dt: 1/144,           // 時間步長
             
             // 顯示設置
             isThrough: false,     // 無邊界模式
             showGrid: false,      // 顯示網格
-            cellSize: 50,         // 網格大小
+            gridData: {
+                cellSize: 50,
+                width: 0,
+                height: 0,
+                selectedCell: null,
+                nearbyCells: []
+            },
             
             // 滑鼠交互
             mouseForce: 10,
@@ -611,22 +632,17 @@
             // 其他設置
             setectGridDistance: 250,
             enableParticleAffcetRadiusShow: false,
-            
+            selectedParticleId: null,
+            selectedParticleType: null,
+            nearbyParticlesList: [],
+            ballRadius: 1.5,
+            RadiusShow: [true, true, true],
             // 更新控制
             updateInterval: 16.66    // 約 60 FPS
         };
         document.addEventListener('DOMContentLoaded', () => {
             const canvas2d = document.getElementById("board2d");
             const ctx = canvas2d.getContext("2d");
-            const ballRadius = 1.5;
-            let nearbyParticlesOne = [];
-            let nearbyParticlesTwo = [];
-            let nearbyParticlesThree = [];
-            let selectedParticleId = null;
-            let enableParticleAffcetRadiusShow = false;
-            let isOneRadiusShow = true;
-            let isTwoRadiusShow = true;
-            let isThreeRadiusShow = true;
 
             // 移除 WebGL 相關變量
             /*
@@ -650,24 +666,24 @@
                 worker.postMessage({ type: 'updateCanvasSize', width, height });
             }
 
-            let showGrid = false;
-
             function draw(particles, gridData) {
                 ctx.fillStyle = 'black';
                 ctx.fillRect(0, 0, canvas2d.width, canvas2d.height);
-                
-                if (showGrid && gridData) {
+                if (gameState.showGrid && gridData) {
                     drawGrid(ctx, gridData);
                 }
 
-                const enableParticleAffcetRadiusShow = document.getElementById('enableParticleAffcetRadiusShow').checked;
                 
                 particles.forEach(p => {
                     ctx.beginPath();
-                    ctx.arc(p.x, p.y, ballRadius, 0, Math.PI * 2);
+                    ctx.arc(p.x, p.y, gameState.ballRadius, 0, Math.PI * 2);
                     
-                    if (enableParticleAffcetRadiusShow) {
-                        if (p.id === selectedParticleId) {
+                    if (gameState.enableParticleAffcetRadiusShow) {
+                        if (gameState.selectedParticleId === null) {
+                            ctx.fillStyle = 'gray';
+                            ctx.fill();
+                            ctx.closePath();
+                        }else if (p.id === gameState.selectedParticleId) {
                             let isXOverflow = false;
                             let isYOverflow = false;
                             let newx = p.x;
@@ -675,136 +691,56 @@
                             ctx.fillStyle = 'rgba(255, 255, 255, 1)';
                             ctx.fill();
                             ctx.closePath();
-                            if (isOneRadiusShow) {
-                                ctx.beginPath();
-                                ctx.arc(p.x, p.y, radiusOne.value, 0, Math.PI * 2);
-                                ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-                                ctx.fill();
-                                ctx.closePath();
-                                if (throughCheckbox.checked) {
-                                    isXOverflow = false;
-                                    isYOverflow = false;
-                                    newx = p.x;
-                                    newy = p.y;
-                                    if ((p.x < radiusOne.value || p.x > canvas2d.width - radiusOne.value)){
-                                        isXOverflow = true;
-                                        newx = p.x < radiusOne.value ? p.x + canvas2d.width : p.x - canvas2d.width;
-                                        ctx.beginPath();
-                                        ctx.arc(newx, p.y, radiusOne.value, 0, Math.PI * 2);
-                                        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-                                        ctx.fill();
-                                        ctx.closePath();
-                                    }
-                                    if ((p.y < radiusOne.value || p.y > canvas2d.height - radiusOne.value)){
-                                        isYOverflow = true;
-                                        newy = p.y < radiusOne.value ? p.y + canvas2d.height : p.y - canvas2d.height;
-                                        ctx.beginPath();
-                                        ctx.arc(p.x, newy, radiusOne.value, 0, Math.PI * 2);
-                                        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-                                        ctx.fill();
-                                        ctx.closePath();
-                                    }
-                                    if (isXOverflow && isYOverflow) {
-                                        ctx.beginPath();
-                                        ctx.arc(newx, newy, radiusOne.value, 0, Math.PI * 2);
-                                        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-                                        ctx.fill();
-                                        ctx.closePath();
-                                    }
-                                }
-                            }
-                            if (isTwoRadiusShow) {  
-                                ctx.beginPath()
-                                ctx.arc(p.x, p.y, radiusTwo.value, 0, Math.PI * 2);
-                                ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-                                ctx.fill();
-                                ctx.closePath();
-                                if (throughCheckbox.checked) {
-                                    isXOverflow = false;
-                                    isYOverflow = false;
-                                    newx = p.x;
-                                    newy = p.y; 
-                                    if ((p.x < radiusTwo.value || p.x > canvas2d.width - radiusTwo.value)){
-                                        isXOverflow = true;
-                                        newx = p.x < radiusTwo.value ? p.x + canvas2d.width : p.x - canvas2d.width;
-                                        ctx.beginPath();
-                                        ctx.arc(newx, p.y, radiusTwo.value, 0, Math.PI * 2);
-                                        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-                                        ctx.fill();
-                                        ctx.closePath();
-                                    }
-                                    if ((p.y < radiusTwo.value || p.y > canvas2d.height - radiusTwo.value)){
-                                        isYOverflow = true;
-                                        newy = p.y < radiusTwo.value ? p.y + canvas2d.height : p.y - canvas2d.height;
-                                        ctx.beginPath();
-                                        ctx.arc(p.x, newy, radiusTwo.value, 0, Math.PI * 2);
-                                        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-                                        ctx.fill();
-                                        ctx.closePath();
-                                    }
-                                    if (isXOverflow && isYOverflow) {
-                                        ctx.beginPath();
-                                        ctx.arc(newx, newy, radiusTwo.value, 0, Math.PI * 2);
-                                        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-                                        ctx.fill();
-                                        ctx.closePath();
+                            for (let i = 0; i < gameState.RadiusShow.length; i++) {
+                                if (gameState.RadiusShow[i]) {
+                                    hsl = gameState.particleColors[i];
+                                    h = hsl.match(/hsl\((\d+),\s*\d+%,\s*\d+%\)/)[1];
+                                    hsla = `hsla(${h}, 100%, 50%, 0.3)`;
+                                    radius = gameState.distanceMatrix[gameState.selectedParticleType][i];
+                                    ctx.beginPath();
+                                    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                                    ctx.fillStyle = hsla;
+                                    ctx.fill();
+                                    ctx.closePath();
+                                    if (throughCheckbox.checked) {
+                                        isXOverflow = false;
+                                        isYOverflow = false;
+                                        newx = p.x;
+                                        newy = p.y;
+                                        if ((p.x < radius || p.x > canvas2d.width - radius)){
+                                            isXOverflow = true;
+                                            newx = p.x < radius ? p.x + canvas2d.width : p.x - canvas2d.width;
+                                            ctx.beginPath();
+                                            ctx.arc(newx, p.y, radius, 0, Math.PI * 2);
+                                            ctx.fillStyle = hsla;
+                                            ctx.fill();
+                                            ctx.closePath();
+                                        }
+                                        if ((p.y < radius || p.y > canvas2d.height - radius)){
+                                            isYOverflow = true;
+                                            newy = p.y < radius ? p.y + canvas2d.height : p.y - canvas2d.height;
+                                            ctx.beginPath();
+                                            ctx.arc(p.x, newy, radius, 0, Math.PI * 2);
+                                            ctx.fillStyle = hsla;
+                                            ctx.fill();
+                                            ctx.closePath();
+                                        }
+                                        if (isXOverflow && isYOverflow) {
+                                            ctx.beginPath();
+                                            ctx.arc(newx, newy, radius, 0, Math.PI * 2);
+                                            ctx.fillStyle = hsla;
+                                            ctx.fill();
+                                            ctx.closePath();
+                                        }
                                     }
                                 }
                             }
-                            if (isThreeRadiusShow) {
-                                ctx.beginPath();
-                                ctx.arc(p.x, p.y, radiusThree.value, 0, Math.PI * 2);
-                                ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
+                        } else { 
+                            if (gameState.RadiusShow[p.type]) {
+                                ctx.fillStyle = (gameState.nearbyParticlesList[p.type]||[]).includes(p) ? p.color : 'gray';
                                 ctx.fill();
                                 ctx.closePath();
-                                if (throughCheckbox.checked) {
-                                    isXOverflow = false;
-                                    isYOverflow = false;
-                                    newx = p.x;
-                                    newy = p.y;
-                                    if ((p.x < radiusThree.value || p.x > canvas2d.width - radiusThree.value)){
-                                        isXOverflow = true;
-                                        newx = p.x < radiusThree.value ? p.x + canvas2d.width : p.x - canvas2d.width;
-                                        ctx.beginPath();
-                                        ctx.arc(newx, p.y, radiusThree.value, 0, Math.PI * 2);
-                                        ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
-                                        ctx.fill();
-                                        ctx.closePath();
-                                    }   
-                                    if ((p.y < radiusThree.value || p.y > canvas2d.height - radiusThree.value)){
-                                        isYOverflow = true;
-                                        newy = p.y < radiusThree.value ? p.y + canvas2d.height : p.y - canvas2d.height;
-                                        ctx.beginPath();
-                                        ctx.arc(p.x, newy, radiusThree.value, 0, Math.PI * 2);
-                                        ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
-                                        ctx.fill();
-                                        ctx.closePath();
-                                    }
-                                    if (isXOverflow && isYOverflow) {
-                                        ctx.beginPath();
-                                        ctx.arc(newx, newy, radiusThree.value, 0, Math.PI * 2);
-                                        ctx.fillStyle = 'rgba(0, 0, 255, 0.1)';
-                                        ctx.fill();
-                                        ctx.closePath();
-                                    }
-                                }
                             }
-                        } else if (nearbyParticlesOne.includes(p) && isOneRadiusShow) {
-                            ctx.fillStyle = 'red';
-                            ctx.fill();
-                            ctx.closePath();
-                        } else if (nearbyParticlesTwo.includes(p) && isTwoRadiusShow) {
-                            ctx.fillStyle = 'green';
-                            ctx.fill();
-                            ctx.closePath();
-                        } else if (nearbyParticlesThree.includes(p) && isThreeRadiusShow) {
-                            ctx.fillStyle = 'blue';
-                            ctx.fill();
-                            ctx.closePath();
-                        } else {
-                            ctx.fillStyle = 'gray';
-                            ctx.fill();
-                            ctx.closePath();
                         }
                     } else {
                         ctx.fillStyle = p.isOutside ? 'white' : p.color;
@@ -815,8 +751,10 @@
             }
 
             function drawGrid(ctx, gridData) {
-                const { cellSize, width, height, canvasWidth, canvasHeight, selectedCell, nearbyCells } = gridData;
-                
+                //console.log(gridData);
+                const { cellSize, width, height, selectedCell, nearbyCells } = gridData;
+                const canvasWidth = canvas2d.width;
+                const canvasHeight = canvas2d.height;
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
                 ctx.lineWidth = 1;
 
@@ -850,7 +788,7 @@
 
             // 初始化遊戲函數修改
             function initGame() {
-                performanceData = {
+                let performanceData = {
                     totalTime: 0,
                     totalTimeAll: [],
                     totalTimeMax: 0,
@@ -865,7 +803,10 @@
                     gAffectCalcTimeMax: 0,
                     positionUpdateTime: 0,
                     positionUpdateTimeAll: [],
-                    positionUpdateTimeMax: 0
+                    positionUpdateTimeMax: 0,
+                    ParticleAffcetCalcTime: 0,
+                    ParticleAffcetCalcTimeAll: [],
+                    ParticleAffcetCalcTimeMax: 0
                 };
                 worker.postMessage({
                     type: 'init',
@@ -875,7 +816,7 @@
                     particleColors: gameState.particleColors,
                     particleTypes: gameState.particleTypes,
                     performanceData: performanceData,
-                    gridSize: gameState.cellSize
+                    cellSize: gameState.gridData.cellSize
                 });
             }
 
@@ -889,46 +830,55 @@
             let frameCount = 0;
             let lastTime = performance.now();
             let fps = 0;
+            let gameFPS = 0;
 
-            let gridCellSize = 50; // 默認值
             let particles = [];
             let performanceData = {
                 totalTime: 0,
                 totalTimeAll: [],
                 totalTimeMax: 0,
+                totalTimeAverage: 0,
                 gridResetTime: 0,
                 gridResetTimeAll: [],
                 gridResetTimeMax: 0,
+                gridResetTimeAverage: 0,
                 getNearbyTime: 0,
                 getNearbyTimeAll: [],
                 getNearbyTimeMax: 0,
+                getNearbyTimeAverage: 0,
                 gAffectCalcTime: 0,
                 gAffectCalcTimeAll: [],
                 gAffectCalcTimeMax: 0,
+                gAffectCalcTimeAverage: 0,
                 positionUpdateTime: 0,
                 positionUpdateTimeAll: [],
-                positionUpdateTimeMax: 0
+                positionUpdateTimeMax: 0,
+                positionUpdateTimeAverage: 0,
+                ParticleAffcetCalcTime: 0,
+                ParticleAffcetCalcTimeAll: [],
+                ParticleAffcetCalcTimeMax: 0,
+                ParticleAffcetCalcTimeAverage: 0
             };
             let totalTimeAverageUpdateMs = 1000;
             let gridResetTimeAverageUpdateMs = 1000;
             let getNearbyTimeAverageUpdateMs = 1000;
             let gAffectCalcTimeAverageUpdateMs = 1000;
             let positionUpdateTimeAverageUpdateMs = 1000;
+            let ParticleAffcetCalcTimeAverageUpdateMs = 1000;
             let totalTimeAverageUpdateLastTime = 0;
             let gridResetTimeAverageUpdateLastTime = 0;
             let getNearbyTimeAverageUpdateLastTime = 0;
             let gAffectCalcTimeAverageUpdateLastTime = 0;
             let positionUpdateTimeAverageUpdateLastTime = 0;
-            let gridData = {
-                cellSize: 0,
-                width: 0,
-                height: 0,
-                selectedCell: null,
-                nearbyCells: []
-            };
-
+            let ParticleAffcetCalcTimeAverageUpdateLastTime = 0;
             function update() {
-                draw(particles, gridData);
+                // 更新所選單元格的顯示
+                if (gameState.gridData.selectedCell) {
+                    document.getElementById('selected-cell').textContent = `x: ${gameState.gridData.selectedCell.x}, y: ${gameState.gridData.selectedCell.y}`;
+                } else {
+                    document.getElementById('selected-cell').textContent = '無';
+                }
+                draw(particles, gameState.gridData);
                 if (performanceData.totalTime > performanceData.totalTimeMax) {
                     performanceData.totalTimeMax = performanceData.totalTime;
                 }
@@ -944,15 +894,20 @@
                 if (performanceData.positionUpdateTime > performanceData.positionUpdateTimeMax){
                     performanceData.positionUpdateTimeMax = performanceData.positionUpdateTime;
                 }
+                if (performanceData.ParticleAffcetCalcTime > performanceData.ParticleAffcetCalcTimeMax){
+                    performanceData.ParticleAffcetCalcTimeMax = performanceData.ParticleAffcetCalcTime;
+                }
                 performanceData.totalTimeAll.push(performanceData.totalTime);
                 performanceData.gridResetTimeAll.push(performanceData.gridResetTime);
                 performanceData.getNearbyTimeAll.push(performanceData.getNearbyTime);
                 performanceData.gAffectCalcTimeAll.push(performanceData.gAffectCalcTime);
                 performanceData.positionUpdateTimeAll.push(performanceData.positionUpdateTime);
+                performanceData.ParticleAffcetCalcTimeAll.push(performanceData.ParticleAffcetCalcTime);
                 // 更新性能數據顯示
                 document.getElementById('total-time').textContent = performanceData.totalTime.toFixed(2);
                 if (performance.now() - totalTimeAverageUpdateLastTime >= totalTimeAverageUpdateMs) {
-                    document.getElementById('total-time-average').textContent = (performanceData.totalTimeAll.reduce((a, b) => a + b, 0) / performanceData.totalTimeAll.length).toFixed(2);
+                    performanceData.totalTimeAverage = performanceData.totalTimeAll.reduce((a, b) => a + b, 0) / performanceData.totalTimeAll.length;
+                    document.getElementById('total-time-average').textContent = performanceData.totalTimeAverage.toFixed(2);
                     performanceData.totalTimeAll = [];  
                     totalTimeAverageUpdateLastTime = performance.now();
                 }
@@ -960,45 +915,66 @@
                 
                 document.getElementById('grid-reset-time').textContent = performanceData.gridResetTime.toFixed(2);  
                 if (performance.now() - gridResetTimeAverageUpdateLastTime >= gridResetTimeAverageUpdateMs) {
-                    document.getElementById('grid-reset-time-average').textContent = (performanceData.gridResetTimeAll.reduce((a, b) => a + b, 0) / performanceData.gridResetTimeAll.length).toFixed(2);
+                    performanceData.gridResetTimeAverage = performanceData.gridResetTimeAll.reduce((a, b) => a + b, 0) / performanceData.gridResetTimeAll.length;
+                    document.getElementById('grid-reset-time-average').textContent = performanceData.gridResetTimeAverage.toFixed(2);
                     performanceData.gridResetTimeAll = [];
                     gridResetTimeAverageUpdateLastTime = performance.now();
                 }
                 document.getElementById('grid-reset-time-max').textContent = performanceData.gridResetTimeMax.toFixed(2);
+                document.getElementById('grid-reset-time-single-average').textContent = (performanceData.gridResetTimeAverage/gameState.particleTypes).toFixed(2);
+                document.getElementById('grid-reset-time-run-per-update').textContent = gameState.particleTypes;
 
                 document.getElementById('get-nearby-time').textContent = performanceData.getNearbyTime.toFixed(2);
                 if (performance.now() - getNearbyTimeAverageUpdateLastTime >= getNearbyTimeAverageUpdateMs) {
-                    document.getElementById('get-nearby-time-average').textContent = (performanceData.getNearbyTimeAll.reduce((a, b) => a + b, 0) / performanceData.getNearbyTimeAll.length).toFixed(2);
+                    performanceData.getNearbyTimeAverage = performanceData.getNearbyTimeAll.reduce((a, b) => a + b, 0) / performanceData.getNearbyTimeAll.length;
+                    document.getElementById('get-nearby-time-average').textContent = performanceData.getNearbyTimeAverage.toFixed(2);
                     performanceData.getNearbyTimeAll = [];
                     getNearbyTimeAverageUpdateLastTime = performance.now();
                 }
                 document.getElementById('get-nearby-time-max').textContent = performanceData.getNearbyTimeMax.toFixed(2);
-                
+                document.getElementById('get-nearby-time-single-average').textContent = (performanceData.getNearbyTimeAverage/(gameState.particleTypes*particles.length)).toFixed(2);
+                document.getElementById('get-nearby-time-run-per-update').textContent = gameState.particleTypes*particles.length;
+
                 document.getElementById('g-Affect-Calc-time').textContent = performanceData.gAffectCalcTime.toFixed(2);
                 if (performance.now() - gAffectCalcTimeAverageUpdateLastTime >= gAffectCalcTimeAverageUpdateMs) {
-                    document.getElementById('g-Affect-Calc-time-average').textContent = (performanceData.gAffectCalcTimeAll.reduce((a, b) => a + b, 0) / performanceData.gAffectCalcTimeAll.length).toFixed(2);
+                    performanceData.gAffectCalcTimeAverage = performanceData.gAffectCalcTimeAll.reduce((a, b) => a + b, 0) / performanceData.gAffectCalcTimeAll.length;
+                    document.getElementById('g-Affect-Calc-time-average').textContent = performanceData.gAffectCalcTimeAverage.toFixed(2);
                     performanceData.gAffectCalcTimeAll = [];
                     gAffectCalcTimeAverageUpdateLastTime = performance.now();
                 }
                 document.getElementById('g-Affect-Calc-time-max').textContent = performanceData.gAffectCalcTimeMax.toFixed(2);
+                document.getElementById('g-Affect-Calc-time-single-average').textContent = (performanceData.gAffectCalcTimeAverage/(gameState.particleTypes*particles.length)).toFixed(2);
+                document.getElementById('g-Affect-Calc-time-run-per-update').textContent = gameState.particleTypes*particles.length;
                 
                 document.getElementById('position-update-time').textContent = performanceData.positionUpdateTime.toFixed(2);
                 if (performance.now() - positionUpdateTimeAverageUpdateLastTime >= positionUpdateTimeAverageUpdateMs) {
-                    document.getElementById('position-update-time-average').textContent = (performanceData.positionUpdateTimeAll.reduce((a, b) => a + b, 0) / performanceData.positionUpdateTimeAll.length).toFixed(2);
+                    performanceData.positionUpdateTimeAverage = performanceData.positionUpdateTimeAll.reduce((a, b) => a + b, 0) / performanceData.positionUpdateTimeAll.length;
+                    document.getElementById('position-update-time-average').textContent = performanceData.positionUpdateTimeAverage.toFixed(2);
                     performanceData.positionUpdateTimeAll = [];
                     positionUpdateTimeAverageUpdateLastTime = performance.now();
                 }
                 document.getElementById('position-update-time-max').textContent = performanceData.positionUpdateTimeMax.toFixed(2);
+                document.getElementById('position-update-time-single-average').textContent = (performanceData.positionUpdateTimeAverage/particles.length).toFixed(2);
+                document.getElementById('position-update-time-run-per-update').textContent = particles.length
+
+                document.getElementById('Particle-Affect-Calc-time').textContent = performanceData.ParticleAffcetCalcTime.toFixed(2);
+                if (performance.now() - ParticleAffcetCalcTimeAverageUpdateLastTime >= ParticleAffcetCalcTimeAverageUpdateMs) {
+                    performanceData.ParticleAffcetCalcTimeAverage = performanceData.ParticleAffcetCalcTimeAll.reduce((a, b) => a + b, 0) / performanceData.ParticleAffcetCalcTimeAll.length;
+                    document.getElementById('Particle-Affect-Calc-time-average').textContent = performanceData.ParticleAffcetCalcTimeAverage.toFixed(2);
+                    performanceData.ParticleAffcetCalcTimeAll = [];
+                    ParticleAffcetCalcTimeAverageUpdateLastTime = performance.now();
+                }
+                document.getElementById('Particle-Affect-Calc-time-max').textContent = performanceData.ParticleAffcetCalcTimeMax.toFixed(2);
 
                 // 更新選中粒子的屬性顯示
-                if (enableParticleAffcetRadiusShow){
+                if (gameState.enableParticleAffcetRadiusShow){
                     const propertyElement = document.getElementById('selectedParticleProperty');
-                    if (selectedParticleId !== null && particles.length > 0) {
-                        const selectedParticle = particles.find(p => p.id === selectedParticleId);
+                    if (gameState.selectedParticleId !== null && particles.length > 0) {
+                        const selectedParticle = particles.find(p => p.id === gameState.selectedParticleId);
                         if (selectedParticle) {
                             const properties = [
                                 `ID: ${selectedParticle.id}`,
-                                `類型: ${selectedParticle.type}`,
+                                `類型: ${selectedParticle.type + 1}`,
                                 `位置: (${selectedParticle.x.toFixed(2)}, ${selectedParticle.y.toFixed(2)})`,
                                 `速度: (${selectedParticle.vx.toFixed(2)}, ${selectedParticle.vy.toFixed(2)})`,
                                 `顏色: ${selectedParticle.color}`,
@@ -1022,7 +998,8 @@
                     frameCount = 0;
                     lastTime = currentTime;
                 }
-
+                gameUPS = (1000 / (performanceData.totalTimeAverage)).toFixed(0);
+                document.getElementById('gameUPS').textContent = gameUPS;
                 requestAnimationFrame(() => {
                     worker.postMessage({ type: 'canUpdate' });
                     update();
@@ -1033,30 +1010,27 @@
             worker.onmessage = function (e) {
                 if (e.data.type === 'update') {
                     particles = e.data.particles;
-                    gridData = e.data.gridData;
+                    particleGroups = e.data.particleGroups;
+                    gameState.gridData.nearbyCells = e.data.nearbyCells;
+                    gameState.gridData.width = e.data.gridDataWidth;
+                    gameState.gridData.height = e.data.gridDataHeight;
                     performanceData.totalTime = e.data.performanceData.totalTime;
                     performanceData.gridResetTime = e.data.performanceData.gridResetTime
                     performanceData.getNearbyTime = e.data.performanceData.getNearbyTime
                     performanceData.gAffectCalcTime = e.data.performanceData.gAffectCalcTime;
                     performanceData.positionUpdateTime = e.data.performanceData.positionUpdateTime;
-                    if (enableParticleAffcetRadiusShow){
-                        nearbyParticlesList = e.data.nearbyParticlesList;
-                        for (let i = 0; i < nearbyParticlesList.length; i++) {
-                            if (nearbyParticlesList[i].type === 1) {
-                                document.getElementById('nearbyParticlesOneNumber').textContent = nearbyParticlesOne.length
-                            }
+                    performanceData.ParticleAffcetCalcTime = e.data.performanceData.ParticleAffcetCalcTime;
+                    if (gameState.enableParticleAffcetRadiusShow){
+                        gameState.nearbyParticlesList = e.data.nearbyParticlesList;
+                        for (let i = 0; i < gameState.nearbyParticlesList.length; i++) {
+                            //console.log(`gameState.nearbyParticlesList[${i}]: ${gameState.nearbyParticlesList[i]}`);
+                            document.getElementById(`particle-nearby-particles-${i}`).textContent = `範圍內的類型${i + 1}粒子數量: ${gameState.nearbyParticlesList[i] ? gameState.nearbyParticlesList[i].length : 0}`;
                         }
-                    }
-                    // 更新所選單元格的顯示
-                    if (gridData.selectedCell) {
-                        document.getElementById('selected-cell').textContent = `x: ${gridData.selectedCell.x}, y: ${gridData.selectedCell.y}`;
-                    } else {
-                        document.getElementById('selected-cell').textContent = '無';
                     }
 
                     // 更新網格寬度和高度的顯示
-                    document.getElementById('grid-width').textContent = gridData.width;
-                    document.getElementById('grid-height').textContent = gridData.height;
+                    document.getElementById('grid-width').textContent = gameState.gridData.width;
+                    document.getElementById('grid-height').textContent = gameState.gridData.height;
                 }
             };
 
@@ -1137,7 +1111,7 @@
                 rules['tHalf'] = gameState.tHalf;
                 rules['dt'] = gameState.dt;
                 rules['mouseForce'] = gameState.mouseForce;
-                rules['cellSize'] = gameState.cellSize;
+                rules['gridData'] = gameState.gridData;
 
                 // 添加顏色
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(rules));
@@ -1182,8 +1156,8 @@
                                 gameState.dt = rules[id];
                             } else if (id === 'mouseForce') {
                                 gameState.mouseForce = rules[id];
-                            } else if (id === 'cellSize') {
-                                gameState.cellSize = rules[id];
+                            } else if (id === 'gridData') {
+                                gameState.gridData = rules[id];
                             } else if (id === 'forceMatrix') {
                                 gameState.forceMatrix = rules[id];
                             } else if (id === 'distanceMatrix') {
@@ -1258,7 +1232,7 @@
 
             // 添加滑鼠事件監聽器
             canvas2d.addEventListener('mousedown', (e) => {
-                if (!enableParticleAffcetRadiusShow){
+                if (!gameState.enableParticleAffcetRadiusShow){
                     isUpdateMouseDownUp = true;
                     isUpdateMouse = true;
                     isMouseDown = true;
@@ -1292,7 +1266,7 @@
                 worker.postMessage({ type: 'updateMouseForce', force: gameState.mouseForce });
             }
             function updateCellSize(){
-                worker.postMessage({ type: 'updateCellSize', size: gameState.cellSize });
+                worker.postMessage({ type: 'updateCellSize', size: gameState.gridData.cellSize });
             }
             function updateSetectGridDistance(){
                 worker.postMessage({ type: 'updateSetectGridDistance', distance: gameState.setectGridDistance });
@@ -1300,7 +1274,18 @@
             function updateUpdateInterval(){
                 worker.postMessage({ type: 'updateUpdateInterval', interval: gameState.updateInterval });
             }
-            
+            function updateDt(){
+                worker.postMessage({ type: 'updateDt', dt: gameState.dt });
+            }
+            function updateBallRadius(){
+                worker.postMessage({ type: 'updateBallRadius', ballRadius: gameState.ballRadius });
+            }
+            function updateRadiusShow(){
+                worker.postMessage({ type: 'updateRadiusShow', RadiusShow: gameState.RadiusShow });
+            }
+            function updateTHalf(){
+                worker.postMessage({ type: 'updateTHalf', tHalf: gameState.tHalf });
+            }
             function updateEveryThing(){
                 updateRules();
                 updateColors();
@@ -1308,15 +1293,21 @@
                 updateCellSize();
                 updateSetectGridDistance();
                 updateUpdateInterval();
+                updateBallRadius();
+                updateRadiusShow();
+                updateTHalf();
+                updateDt();
             }
 
             // 為滑鼠力量滑塊添加事件監聽器
             const mouseForceSlider = document.getElementById('mouse-force');
             const mouseForceNumber = document.getElementById('mouse-force-number');
             mouseForceSlider.addEventListener('input', () => {
+                mouseForceNumber.value = mouseForceSlider.value;
                 worker.postMessage({ type: 'updateMouseForce', force: parseFloat(mouseForceSlider.value) });
             });
             mouseForceNumber.addEventListener('input', () => {
+                mouseForceSlider.value = mouseForceNumber.value;
                 worker.postMessage({ type: 'updateMouseForce', force: parseFloat(mouseForceNumber.value) });
             });
 
@@ -1325,10 +1316,12 @@
             const cellSizeNumber = document.getElementById('cell-size-number');
             cellSizeSlider.addEventListener('input', () => {
                 cellSizeNumber.value = cellSizeSlider.value;
+                gameState.gridData.cellSize = parseInt(cellSizeSlider.value);
                 worker.postMessage({ type: 'updateCellSize', size: parseInt(cellSizeSlider.value) });
             }); 
             cellSizeNumber.addEventListener('input', () => {
                 cellSizeSlider.value = cellSizeNumber.value;
+                gameState.gridData.cellSize = parseInt(cellSizeNumber.value);
                 worker.postMessage({ type: 'updateCellSize', size: parseInt(cellSizeNumber.value) });
             });
 
@@ -1386,14 +1379,14 @@
             // 添加網格顯示切換
             const showGridCheckbox = document.getElementById('showGrid');
             showGridCheckbox.addEventListener('change', () => {
-                showGrid = showGridCheckbox.checked;
-                worker.postMessage({ type: 'toggleGrid', show: showGrid });
+                gameState.showGrid = showGridCheckbox.checked;
+                worker.postMessage({ type: 'toggleGrid', show: gameState.showGrid });
             });
 
             const enableParticleAffcetRadiusShowCheckbox = document.getElementById('enableParticleAffcetRadiusShow');
             enableParticleAffcetRadiusShowCheckbox.addEventListener('change', () => {
-                enableParticleAffcetRadiusShow = enableParticleAffcetRadiusShowCheckbox.checked;
-                worker.postMessage({ type: 'toggleParticleAffcetRadiusShow', enable: enableParticleAffcetRadiusShow });
+                gameState.enableParticleAffcetRadiusShow = enableParticleAffcetRadiusShowCheckbox.checked;
+                worker.postMessage({ type: 'toggleParticleAffcetRadiusShow', enable: gameState.enableParticleAffcetRadiusShow });
             });
 
             /*
@@ -1471,19 +1464,23 @@
 
             // 修改單元格選擇功能
             canvas2d.addEventListener('click', (e) => {
-                if (showGrid) {
+                if (gameState.showGrid) {
                     const rect = canvas2d.getBoundingClientRect();
                     const x = e.clientX - rect.left;
                     const y = e.clientY - rect.top;
-                    const cellX = Math.floor(x / gridCellSize);
-                    const cellY = Math.floor(y / gridCellSize);
-                    worker.postMessage({ type: 'selectCell', cell: { x: cellX, y: cellY } });
+                    const cellX = Math.floor(x / gameState.gridData.cellSize);
+                    const cellY = Math.floor(y / gameState.gridData.cellSize);
+                    gameState.gridData.selectedCell = { x: cellX, y: cellY };
+                    worker.postMessage({ 
+                        type: 'selectCell', 
+                        cell: gameState.gridData.selectedCell,
+                    });
                     
                     // 直接更新顯示，以提供即時反饋
                     document.getElementById('selected-cell').textContent = `x: ${cellX}, y: ${cellY}`;
                 }
                 
-                if (enableParticleAffcetRadiusShow) {
+                if (gameState.enableParticleAffcetRadiusShow) {
                     const rect = canvas2d.getBoundingClientRect();
                     const x = e.clientX - rect.left;
                     const y = e.clientY - rect.top;
@@ -1496,34 +1493,23 @@
                         return (distance < closest.distance)&&(distance < 10) ? { particle, distance } : closest;
                     }, { particle: null, distance: Infinity }).particle;
                     if (selectedParticle) {
-                        selectedParticleId = selectedParticle.id;
-                        selectedParticleType = selectedParticle.type;
-                        nearbyParticlesNumber = [];
-                        for (let i = 0; i < particleGroups.length; i++) {
-                            if (particleGroups[i].type === selectedParticleType) {
-                                nearbyParticlesNumber[i] = particleGroups[i].nearbyParticles.length;
-                            }
-                        }
-                        /*
-                        radiusOne = document.getElementById(selectedParticleType+'-one-distance');
-                        radiusTwo = document.getElementById(selectedParticleType+'-two-distance');
-                        radiusThree = document.getElementById(selectedParticleType+'-three-distance');
-                        */
-                        document.getElementById('selectedParticleId').textContent = selectedParticleId;
+                        gameState.selectedParticleId = selectedParticle.id;
+                        gameState.selectedParticleType = selectedParticle.type;
+                        document.getElementById('selectedParticleId').textContent = gameState.selectedParticleId;
                         // 請求 worker 計算附近的粒子
                         worker.postMessage({ 
                             type: 'updateSelectedParticle', 
-                            particleId: selectedParticleId,
+                            particleId: gameState.selectedParticleId,
                         });
                     } else {
                         document.getElementById('selectedParticleId').textContent = '無';
-                        selectedParticleId = null;
-                        selectedParticleType = null;
+                        gameState.selectedParticleId = null;
+                        gameState.selectedParticleType = null;
                         worker.postMessage({ 
                             type: 'updateSelectedParticle', 
                             particleId: null,
                         });
-                        nearbyParticles = [];
+                        gameState.nearbyParticlesList = [];
                     }
                 }
             });
@@ -1575,7 +1561,8 @@
                 const types = gameState.particleTypes;
                 const particleSettings = document.getElementById('particle-settings');
                 const interactionMatrix = document.getElementById('interaction-matrix');
-                
+                const particleAffcetRadiusShow = document.getElementById('particle-affcet-radius-show');
+                const particleNearbyParticles = document.getElementById('particle-nearby-particles');
                 // 更新粒子類型控制
                 particleSettings.innerHTML = '';
                 for (let i = 0; i < types; i++) {
@@ -1597,10 +1584,26 @@
                     </div>
                 `;
                 
+                particleAffcetRadiusShow.innerHTML = '';
+                
+                for (let i = 0; i < types; i++) {
+                    particleAffcetRadiusShow.innerHTML += `
+                        <div class="particle-affcet-radius-show">
+                            <label for="show-particle-affcet-radius-${i}">顯示類型${i + 1}粒子影響範圍</label>
+                            <input type="checkbox" class="show-particle-affcet-radius" id="show-particle-affcet-radius-${i}" data-type="${i}" checked>
+                        </div>
+                    `;
+                }
+                for (let i = 0; i < types; i++) {
+                    particleNearbyParticles.innerHTML += `
+                        <p class="particle-nearby-particles" id="particle-nearby-particles-${i}">範圍內的類型${i + 1}粒子數量: N/A</p>
+                    `;
+                }
+                
                 // 添加事件監聽器
                 setupParticleControlEventListeners();
                 setupMatrixEventListeners();
-                
+                setupParticleAffcetRadiusShowEventListeners();
                 // 重新初始化粒子系統
                 initGame();
             }
@@ -1661,6 +1664,19 @@
                         const distance = Math.min(Math.max(parseFloat(e.target.value) || 0, parseFloat(e.target.min)), parseFloat(e.target.max));
                         gameState.distanceMatrix[i][j] = parseFloat(distance);
                         updateRules();
+                    });
+                });
+            }
+            // 設置粒子影響範圍顯示的事件監聽器
+            function setupParticleAffcetRadiusShowEventListeners() {
+                document.querySelectorAll('.show-particle-affcet-radius').forEach(input => {
+                    input.addEventListener('change', (e) => {
+                        const type = parseInt(e.target.dataset.type);
+                        gameState.RadiusShow[type] = e.target.checked;
+                        worker.postMessage({
+                            type: 'updateRadiusShow',
+                            RadiusShow: gameState.RadiusShow
+                        });
                     });
                 });
             }
