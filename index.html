@@ -440,6 +440,14 @@
             <input type="range" id="mouse-force" min="0" max="200" step="0.1" value="100">
             <input type="number" id="mouse-force-number" min="0" max="200" step="0.1" value="100">
         </div>
+        <div class="control-section">
+            <h3>物理參數</h3>
+            <div class="control-item">
+                <label for="t-half">摩擦半衰期(秒):</label>
+                <input type="range" id="t-half" min="0.001" max="0.1" step="0.001" value="0.020">
+                <input type="number" id="t-half-number" min="0.001" max="0.1" step="0.001" value="0.020">
+            </div>
+        </div>
 
         <div>
             <label for="updateInterval">更新間隔(ms):</label>
@@ -461,7 +469,7 @@
             </select>
             <p>UPS: Update Per Second，每秒更新次數</p>
             <p>注意: 更新間隔越短，粒子運動越流暢。</p>
-            <p class="description">但如果你的電腦並不能運行到那麼短的更新間隔，那麼你的電腦就無法運行到那麼短的更新間隔。</p>
+            <p class="description">但如果你的電腦並不能運行到那麼短的更新間隔，\n那麼你的電腦就無法運行到那麼短的更新間隔。</p>
         </div>
 
         <!-- 在控制面板中添加性能數據顯示 -->
@@ -552,17 +560,9 @@
             <div>
                 <p>選中的粒子ID: <span id="selectedParticleId">無</span></p>
                 <p>選中的粒子屬性: <span id="selectedParticleProperty"></span></p>
-                <div id="particle-nearby-particles" class="no-background"><!-- 動態生成的粒子範圍內的{i}號粒子數量 --></div>
-                <!-- 
-                let nearbyParticlesP = "";
-                let nearbyParticlesNumber = [];
-                for (let i = 0; i < particleGroups.length; i++) {
-                    nearbyParticlesNumber.push(particleGroups[i].nearbyParticles.length);
-                }
-                for (let i = 0; i < particleGroups.length; i++) {
-                    nearbyParticlesP += "<p>範圍內的{i}號粒子數量: {nearbyParticlesNumber[i]}</p>";
-                }
-                -->
+                <div id="particle-nearby-particles" class="no-background">
+                    <!-- 動態生成的粒子範圍內的{i}號粒子數量 -->
+                </div>
             </div>
         </div>
         <div>
@@ -573,14 +573,6 @@
                 </svg>
                 <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">GitHub Issues</span>
             </a>
-        </div>
-        <div class="control-section">
-            <h3>物理參數</h3>
-            <div class="control-item">
-                <label for="t-half">摩擦半衰期(秒):</label>
-                <input type="range" id="t-half" min="0.001" max="0.1" step="0.001" value="0.020">
-                <input type="number" id="t-half-number" min="0.001" max="0.1" step="0.001" value="0.020">
-            </div>
         </div>
     </div>
     <canvas id="board2d"></canvas>
@@ -627,7 +619,7 @@
             },
             
             // 滑鼠交互
-            mouseForce: 10,
+            mouseForce: 100,
             
             // 其他設置
             setectGridDistance: 250,
@@ -973,7 +965,7 @@
                         const selectedParticle = particles.find(p => p.id === gameState.selectedParticleId);
                         if (selectedParticle) {
                             const properties = [
-                                `ID: ${selectedParticle.id}`,
+                                `\n`,
                                 `類型: ${selectedParticle.type + 1}`,
                                 `位置: (${selectedParticle.x.toFixed(2)}, ${selectedParticle.y.toFixed(2)})`,
                                 `速度: (${selectedParticle.vx.toFixed(2)}, ${selectedParticle.vy.toFixed(2)})`,
@@ -1563,6 +1555,7 @@
                 const interactionMatrix = document.getElementById('interaction-matrix');
                 const particleAffcetRadiusShow = document.getElementById('particle-affcet-radius-show');
                 const particleNearbyParticles = document.getElementById('particle-nearby-particles');
+                RadiusShow = new Array(types).fill().map(() => true);
                 // 更新粒子類型控制
                 particleSettings.innerHTML = '';
                 for (let i = 0; i < types; i++) {
@@ -1594,6 +1587,7 @@
                         </div>
                     `;
                 }
+                particleNearbyParticles.innerHTML = "";
                 for (let i = 0; i < types; i++) {
                     particleNearbyParticles.innerHTML += `
                         <p class="particle-nearby-particles" id="particle-nearby-particles-${i}">範圍內的類型${i + 1}粒子數量: N/A</p>
