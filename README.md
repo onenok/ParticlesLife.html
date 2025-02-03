@@ -1,3 +1,4 @@
+# ***This README.md is OutDated, it will be update soon.***
 # 粒子生命模擬器
 
 這是一個粒子生命模擬器，利用 HTML5 Canvas 進行視覺化展示，並通過 Web Workers 和 網格優化算法 進行高效的後台計算。
