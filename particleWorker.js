@@ -468,6 +468,7 @@ self.onmessage = function (e) {
     switch (e.data.type) {
         case 'init':
             // 初始化畫布和粒子
+            particleGroups = [];
             nextParticleId = 0; // 重置 id 計數器
             canvas.width = e.data.canvasWidth;
             canvas.height = e.data.canvasHeight;
