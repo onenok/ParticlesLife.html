@@ -1555,7 +1555,10 @@
                 const interactionMatrix = document.getElementById('interaction-matrix');
                 const particleAffcetRadiusShow = document.getElementById('particle-affcet-radius-show');
                 const particleNearbyParticles = document.getElementById('particle-nearby-particles');
-                RadiusShow = new Array(types).fill().map(() => true);
+                for (let i = 0; i < types; i++) {
+                    gameState.RadiusShow[i] = gameState.RadiusShow[i] || true;
+                };
+                
                 // 更新粒子類型控制
                 particleSettings.innerHTML = '';
                 for (let i = 0; i < types; i++) {
