@@ -1,5 +1,5 @@
 <!--
- * Copyright (c) 2024 OneNok_HK
+ * Copyright (c) 2025 OneNok_HK
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
 -->
 <!DOCTYPE html>
@@ -8,6 +8,7 @@
 <head>
     <meta charset="UTF-8">
     <title>particles life</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
         body {
             overflow: hidden;
@@ -417,9 +418,9 @@
             <div class="control-section">
                 <h3>🎮 基本操作</h3>
                 <div class="button-container">
-                    <button id="randomize-button" class="styled-button">🎲 隨機化所有值</button>
-                    <button id="restart-button" class="styled-button">🔄 重新開始遊戲</button>
-                    <button id="randomize-and-restart-button" class="styled-button">🎯 隨機化並重新開始</button>
+                    <button id="randomize-button" class="styled-button">🎲 隨機化所有值(r)</button>
+                    <button id="restart-button" class="styled-button">🔄 重新開始遊戲(s)</button>
+                    <button id="randomize-and-restart-button" class="styled-button">🎯 隨機化並重新開始(f)</button>
                 </div>
             </div>
 
@@ -441,6 +442,8 @@
             <input type="range" id="mouse-force" min="0" max="200" step="0.1" value="100">
             <input type="number" id="mouse-force-number" min="0" max="200" step="0.1" value="100">
         </div>
+        <p class="description">按下 "x" 鍵可以持續吸引</p>
+        <p class="description">按下 "z" 鍵可以鎖定吸力位置</p>
         <div class="control-section">
             <h3>物理參數</h3>
             <div class="control-item">
@@ -451,7 +454,7 @@
         </div>
 
         <div>
-            <label for="updateInterval">更新間隔(ms):</label>
+            <label for="updateInterval">最大更新間隔(ms):</label>
             <input type="range" id="updateInterval" min="1" max="50" step="0.01" value="16.66">
             <input type="number" id="updateInterval-number" min="1" max="50" step="0.01" value="16.66">
             <select id="updateInterval-unit">
@@ -470,7 +473,21 @@
             </select>
             <p>UPS: Update Per Second，每秒更新次數</p>
             <p>注意: 更新間隔越短，粒子運動越流暢。</p>
-            <p class="description">但如果你的電腦並不能運行到那麼短的更新間隔，\n那麼你的電腦就無法運行到那麼短的更新間隔。</p>
+            <p class="description">如果你的電腦並不能運行到那麼短的更新間隔，\n那麼你的電腦就無法運行到那麼短的更新間隔。</p>
+        </div>
+        <div class="toggle-container">
+            <label for="isUsingGrid" class="toggle-label">𝄜 使用網格分割(g)</label>
+            <div class="toggle-switch">
+                <input type="checkbox" id="isUsingGrid" checked>
+                <span class="slider"></span>
+            </div>
+        </div>
+        <div class="toggle-container">
+            <label for="isUsingMultithread" class="toggle-label">👥👥 使用多線程(m)</label>
+            <div class="toggle-switch">
+                <input type="checkbox" id="isUsingMultithread">
+                <span class="slider"></span>
+            </div>
         </div>
 
         <!-- 在控制面板中添加性能數據顯示 -->
@@ -503,13 +520,22 @@
                 <br>最大: <span id="g-Affect-Calc-time-max"></span> ms
                 <br>單個粒子平均: <span id="g-Affect-Calc-time-single-average"></span> ms
                 <br>每更新執行次數: <span id="g-Affect-Calc-time-run-per-update"></span> 次
-                </p>
+                <br>已跳過的粒子數量: <span id="particleSkippedCountsTimes"></span> 次
+                <br>有效粒子數量: <span id="particleValidCountsTimes"></span> 次
+            </p>
             <p>更新位置時間: 
                 <br>當前: <span id="position-update-time"></span> ms 
                 <br>平均: <span id="position-update-time-average"></span> ms
                 <br>最大: <span id="position-update-time-max"></span> ms
                 <br>單次平均: <span id="position-update-time-single-average"></span> ms
                 <br>每更新執行次數: <span id="position-update-time-run-per-update"></span> 次
+            </p>
+            <p>粒子碰撞計算時間: 
+                <br>當前: <span id="particle-collision-time"></span> ms 
+                <br>平均: <span id="particle-collision-time-average"></span> ms
+                <br>最大: <span id="particle-collision-time-max"></span> ms
+                <br>單次平均: <span id="particle-collision-time-single-average"></span> ms
+                <br>每更新執行次數: <span id="particle-collision-time-run-per-update"></span> 次
             </p>
             <p>粒子影響範圍計算時間: 
                 <br>當前: <span id="Particle-Affect-Calc-time"></span> ms 
@@ -535,8 +561,9 @@
             </div>
             <div>
                 <label for="setectGridDistance">模擬作用範圍: </label>
-                <input type="range" id="setectGridDistance" min="10" max="500" step="10" value="250">
-                <input type="number" id="setectGridDistance-number" min="10" max="500" step="10" value="250">
+                <input type="range" id="setectGridDistance" min="10" max="500" step="10" value="300">
+                <input type="number" id="setectGridDistance-number" min="10" max="500" step="10" value="300">
+                <p class="description">相當於: <span id="grid-radius-cells">6</span> 個單元格的半徑</p>
             </div>
             <div>
                 <label for="cell-size">網格大小:</label>
@@ -580,10 +607,12 @@
 
     <script>
         // 創建 Web Worker
-        const worker = new Worker('particleWorker.js');
+        const worker = new Worker('particleWorker_multithread.js');
         // 用戶可控制數據的初始化
         const gameState = {
             // 粒子系統基本設置
+            isUsingGrid: true,
+            isUsingMultithread: false,
             particleTypes: 3,
             particleCounts: [250, 250, 250],
             particleColors: [
@@ -616,14 +645,16 @@
                 width: 0,
                 height: 0,
                 selectedCell: null,
-                nearbyCells: []
+                radiusCells: 0,
+                nearbyCells: [],
+                nearbyCellsSkipped: []
             },
             
             // 滑鼠交互
             mouseForce: 100,
             
             // 其他設置
-            setectGridDistance: 250,
+            setectGridDistance: 300,
             enableParticleAffcetRadiusShow: false,
             selectedParticleId: null,
             selectedParticleType: null,
@@ -631,7 +662,8 @@
             ballRadius: 1.5,
             RadiusShow: [true, true, true],
             // 更新控制
-            updateInterval: 16.66    // 約 60 FPS
+            updateInterval: 16.66,    // 約 60 FPS
+            isMovingCanvas: false
         };
         document.addEventListener('DOMContentLoaded', () => {
             const canvas2d = document.getElementById("board2d");
@@ -744,11 +776,10 @@
             }
 
             function drawGrid(ctx, gridData) {
-                //console.log(gridData);
-                const { cellSize, width, height, selectedCell, nearbyCells } = gridData;
+                const { cellSize, width, height, selectedCell, nearbyCells, nearbyCellsSkipped, radiusCells } = gridData;
                 const canvasWidth = canvas2d.width;
                 const canvasHeight = canvas2d.height;
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
                 ctx.lineWidth = 1;
 
                 // 繪製垂直線
@@ -775,32 +806,92 @@
                     ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
                     nearbyCells.forEach(cell => {
                         ctx.fillRect(cell.x * cellSize, cell.y * cellSize, cellSize, cellSize);
+                        const text = `${Math.sqrt(cell.cellRadiusNotSqrtYet).toFixed(2)}格`;
+                        ctx.font = `${2*cellSize/text.length}px serif`;
+                        ctx.textBaseline = "middle";
+                        ctx.textAlign = "center";
+                        ctx.strokeText(text, cellSize*(cell.x+1/2), cellSize*(cell.y+1/2), cellSize);
+                    });
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+                    nearbyCellsSkipped.forEach(cell => {
+                        ctx.fillRect(cell.x * cellSize, cell.y * cellSize, cellSize, cellSize);
+                        const text = `${Math.sqrt(cell.cellRadiusNotSqrtYet).toFixed(2)}格`;
+                        ctx.font = `${2*cellSize/text.length}px serif`;
+                        ctx.textBaseline = "middle";
+                        ctx.textAlign = "center";
+                        ctx.strokeText(text, cellSize*(cell.x+1/2), cellSize*(cell.y+1/2), cellSize);
                     });
                 }
             }
 
+            function drawWarningCanvasMoving() {
+                const canvasWidth = canvas2d.width;
+                const canvasHeight = canvas2d.height;
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.2)'; // Yellow background like console.warn
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+                ctx.font = 'bold 20px monospace'; // Console-like font
+                ctx.fillStyle = '#000'; // Dark text
+                ctx.textBaseline = "middle";
+                ctx.textAlign = "center";
+                ctx.fillText('⚠️ 畫布正在移動中', canvasWidth/2, canvasHeight/2, canvasWidth); // Added warning emoji and using fillText for solid text
+            }
+
+            // 添加 FPS 計算相關變量
+            let frameCount = 0;
+            let lastTime = performance.now();
+            let fps = 0;
+            let gameFPS = 0;
+
+            let particles = [];
+            let performanceDataLocal = {
+                updateIntervalCountsTimes: 0,
+                totalTimeAll: [],
+                totalTimeMax: 0,
+                totalTimeAverage: 0,
+                gridResetTimeAll: [],
+                gridResetTimeMax: 0,
+                gridResetTimeAverage: 0,
+                getNearbyTimeAll: [],
+                getNearbyTimeMax: 0,
+                getNearbyTimeAverage: 0,
+                gAffectCalcTimeAll: [],
+                gAffectCalcTimeMax: 0,
+                gAffectCalcTimeAverage: 0,
+                positionUpdateTimeAll: [],
+                positionUpdateTimeMax: 0,
+                positionUpdateTimeAverage: 0,
+                particleCollisionTimeAll: [],
+                particleCollisionTimeMax: 0,
+                particleCollisionTimeAverage: 0,
+                ParticleAffcetCalcTimeAll: [],
+                ParticleAffcetCalcTimeMax: 0,
+                ParticleAffcetCalcTimeAverage: 0
+            };
+            let performanceData = {
+                totalTime: 0,
+                gridResetTime: 0,
+                gridResetAndAddCountsTimes: 0,
+                getNearbyTime: 0,
+                getNearbyCountsTimes: 0,
+                gAffectCalcTime: 0,
+                gAffectCalcCountsTimes: 0,
+                particleSkippedCountsTimes: 0,
+                positionUpdateTime: 0,
+                positionUpdateCountsTimes: 0,
+                ParticleAffcetCalcTime: 0,
+                particleCollisionTime: 0,
+                particleCollisionCountsTimes: 0,
+            };
+            
             // 初始化遊戲函數修改
             function initGame() {
-                let performanceData = {
-                    totalTime: 0,
-                    totalTimeAll: [],
-                    totalTimeMax: 0,
-                    gridResetTime: 0,
-                    gridResetTimeAll: [],
-                    gridResetTimeMax: 0,
-                    getNearbyTime: 0,
-                    getNearbyTimeAll: [],
-                    getNearbyTimeMax: 0,
-                    gAffectCalcTime: 0,
-                    gAffectCalcTimeAll: [],
-                    gAffectCalcTimeMax: 0,
-                    positionUpdateTime: 0,
-                    positionUpdateTimeAll: [],
-                    positionUpdateTimeMax: 0,
-                    ParticleAffcetCalcTime: 0,
-                    ParticleAffcetCalcTimeAll: [],
-                    ParticleAffcetCalcTimeMax: 0
-                };
+                Object.keys(performanceDataLocal).forEach(key => {
+                    if (performanceDataLocal[key] instanceof Array) {
+                        performanceDataLocal[key] = [];
+                    } else {
+                        performanceDataLocal[key] = 0;
+                    }
+                });
                 worker.postMessage({
                     type: 'init',
                     particleCounts: gameState.particleCounts,
@@ -819,51 +910,21 @@
             // 監聽視窗大小變化
             window.addEventListener("resize", updateCanvasSize);
 
-            // 添加 FPS 計算相關變量
-            let frameCount = 0;
-            let lastTime = performance.now();
-            let fps = 0;
-            let gameFPS = 0;
 
-            let particles = [];
-            let performanceData = {
-                totalTime: 0,
-                totalTimeAll: [],
-                totalTimeMax: 0,
-                totalTimeAverage: 0,
-                gridResetTime: 0,
-                gridResetTimeAll: [],
-                gridResetTimeMax: 0,
-                gridResetTimeAverage: 0,
-                getNearbyTime: 0,
-                getNearbyTimeAll: [],
-                getNearbyTimeMax: 0,
-                getNearbyTimeAverage: 0,
-                gAffectCalcTime: 0,
-                gAffectCalcTimeAll: [],
-                gAffectCalcTimeMax: 0,
-                gAffectCalcTimeAverage: 0,
-                positionUpdateTime: 0,
-                positionUpdateTimeAll: [],
-                positionUpdateTimeMax: 0,
-                positionUpdateTimeAverage: 0,
-                ParticleAffcetCalcTime: 0,
-                ParticleAffcetCalcTimeAll: [],
-                ParticleAffcetCalcTimeMax: 0,
-                ParticleAffcetCalcTimeAverage: 0
-            };
             let totalTimeAverageUpdateMs = 1000;
             let gridResetTimeAverageUpdateMs = 1000;
             let getNearbyTimeAverageUpdateMs = 1000;
             let gAffectCalcTimeAverageUpdateMs = 1000;
             let positionUpdateTimeAverageUpdateMs = 1000;
             let ParticleAffcetCalcTimeAverageUpdateMs = 1000;
+            let particleCollisionTimeAverageUpdateMs = 1000;
             let totalTimeAverageUpdateLastTime = 0;
             let gridResetTimeAverageUpdateLastTime = 0;
             let getNearbyTimeAverageUpdateLastTime = 0;
             let gAffectCalcTimeAverageUpdateLastTime = 0;
             let positionUpdateTimeAverageUpdateLastTime = 0;
             let ParticleAffcetCalcTimeAverageUpdateLastTime = 0;
+            let particleCollisionTimeAverageUpdateLastTime = 0;
             function update() {
                 // 更新所選單元格的顯示
                 if (gameState.gridData.selectedCell) {
@@ -872,92 +933,112 @@
                     document.getElementById('selected-cell').textContent = '無';
                 }
                 draw(particles, gameState.gridData);
-                if (performanceData.totalTime > performanceData.totalTimeMax) {
-                    performanceData.totalTimeMax = performanceData.totalTime;
+                if (gameState.isMovingCanvas) {
+                    drawWarningCanvasMoving();
                 }
-                if (performanceData.gridResetTime > performanceData.gridResetTimeMax){
-                    performanceData.gridResetTimeMax = performanceData.gridResetTime;
+                if (performanceData.totalTime > performanceDataLocal.totalTimeMax) {
+                    performanceDataLocal.totalTimeMax = performanceData.totalTime;
                 }
-                if (performanceData.getNearbyTime > performanceData.getNearbyTimeMax){
-                    performanceData.getNearbyTimeMax = performanceData.getNearbyTime;
+                if (performanceData.gridResetTime > performanceDataLocal.gridResetTimeMax){
+                    performanceDataLocal.gridResetTimeMax = performanceData.gridResetTime;
                 }
-                if (performanceData.gAffectCalcTime > performanceData.gAffectCalcTimeMax){
-                    performanceData.gAffectCalcTimeMax = performanceData.gAffectCalcTime;
+                if (performanceData.getNearbyTime > performanceDataLocal.getNearbyTimeMax){
+                    performanceDataLocal.getNearbyTimeMax = performanceData.getNearbyTime;
                 }
-                if (performanceData.positionUpdateTime > performanceData.positionUpdateTimeMax){
-                    performanceData.positionUpdateTimeMax = performanceData.positionUpdateTime;
+                if (performanceData.gAffectCalcTime > performanceDataLocal.gAffectCalcTimeMax){
+                    performanceDataLocal.gAffectCalcTimeMax = performanceData.gAffectCalcTime;
                 }
-                if (performanceData.ParticleAffcetCalcTime > performanceData.ParticleAffcetCalcTimeMax){
-                    performanceData.ParticleAffcetCalcTimeMax = performanceData.ParticleAffcetCalcTime;
+                if (performanceData.positionUpdateTime > performanceDataLocal.positionUpdateTimeMax){
+                    performanceDataLocal.positionUpdateTimeMax = performanceData.positionUpdateTime;
                 }
-                performanceData.totalTimeAll.push(performanceData.totalTime);
-                performanceData.gridResetTimeAll.push(performanceData.gridResetTime);
-                performanceData.getNearbyTimeAll.push(performanceData.getNearbyTime);
-                performanceData.gAffectCalcTimeAll.push(performanceData.gAffectCalcTime);
-                performanceData.positionUpdateTimeAll.push(performanceData.positionUpdateTime);
-                performanceData.ParticleAffcetCalcTimeAll.push(performanceData.ParticleAffcetCalcTime);
+                if (performanceData.particleCollisionTime > performanceDataLocal.particleCollisionTimeMax){
+                    performanceDataLocal.particleCollisionTimeMax = performanceData.particleCollisionTime;
+                }
+                if (performanceData.ParticleAffcetCalcTime > performanceDataLocal.ParticleAffcetCalcTimeMax){
+                    performanceDataLocal.ParticleAffcetCalcTimeMax = performanceData.ParticleAffcetCalcTime;
+                }
+                performanceDataLocal.totalTimeAll.push(performanceData.totalTime);
+                performanceDataLocal.gridResetTimeAll.push(performanceData.gridResetTime);
+                performanceDataLocal.getNearbyTimeAll.push(performanceData.getNearbyTime);
+                performanceDataLocal.gAffectCalcTimeAll.push(performanceData.gAffectCalcTime);
+                performanceDataLocal.positionUpdateTimeAll.push(performanceData.positionUpdateTime);
+                performanceDataLocal.particleCollisionTimeAll.push(performanceData.particleCollisionTime);
+                performanceDataLocal.ParticleAffcetCalcTimeAll.push(performanceData.ParticleAffcetCalcTime);
                 // 更新性能數據顯示
                 document.getElementById('total-time').textContent = performanceData.totalTime.toFixed(2);
                 if (performance.now() - totalTimeAverageUpdateLastTime >= totalTimeAverageUpdateMs) {
-                    performanceData.totalTimeAverage = performanceData.totalTimeAll.reduce((a, b) => a + b, 0) / performanceData.totalTimeAll.length;
-                    document.getElementById('total-time-average').textContent = performanceData.totalTimeAverage.toFixed(2);
-                    performanceData.totalTimeAll = [];  
+                    performanceDataLocal.totalTimeAverage = performanceDataLocal.totalTimeAll.reduce((a, b) => a + b, 0) / performanceDataLocal.totalTimeAll.length;
+                    document.getElementById('total-time-average').textContent = performanceDataLocal.totalTimeAverage.toFixed(2);
+                    performanceDataLocal.totalTimeAll = [];  
                     totalTimeAverageUpdateLastTime = performance.now();
                 }
-                document.getElementById('total-time-max').textContent = performanceData.totalTimeMax.toFixed(2);
+                document.getElementById('total-time-max').textContent = performanceDataLocal.totalTimeMax.toFixed(2);
                 
                 document.getElementById('grid-reset-time').textContent = performanceData.gridResetTime.toFixed(2);  
                 if (performance.now() - gridResetTimeAverageUpdateLastTime >= gridResetTimeAverageUpdateMs) {
-                    performanceData.gridResetTimeAverage = performanceData.gridResetTimeAll.reduce((a, b) => a + b, 0) / performanceData.gridResetTimeAll.length;
-                    document.getElementById('grid-reset-time-average').textContent = performanceData.gridResetTimeAverage.toFixed(2);
-                    performanceData.gridResetTimeAll = [];
+                    performanceDataLocal.gridResetTimeAverage = performanceDataLocal.gridResetTimeAll.reduce((a, b) => a + b, 0) / performanceDataLocal.gridResetTimeAll.length;
+                    document.getElementById('grid-reset-time-average').textContent = performanceDataLocal.gridResetTimeAverage.toFixed(2);
+                    performanceDataLocal.gridResetTimeAll = [];
                     gridResetTimeAverageUpdateLastTime = performance.now();
                 }
-                document.getElementById('grid-reset-time-max').textContent = performanceData.gridResetTimeMax.toFixed(2);
-                document.getElementById('grid-reset-time-single-average').textContent = (performanceData.gridResetTimeAverage/gameState.particleTypes).toFixed(2);
-                document.getElementById('grid-reset-time-run-per-update').textContent = gameState.particleTypes;
+                document.getElementById('grid-reset-time-max').textContent = performanceDataLocal.gridResetTimeMax.toFixed(2);
+                document.getElementById('grid-reset-time-single-average').textContent = performanceData.gridResetAndAddCountsTimes > 0 ? ((performanceDataLocal.gridResetTimeAverage/performanceData.gridResetAndAddCountsTimes).toFixed(4)) : '不適用';
+                document.getElementById('grid-reset-time-run-per-update').textContent = performanceData.gridResetAndAddCountsTimes;
 
                 document.getElementById('get-nearby-time').textContent = performanceData.getNearbyTime.toFixed(2);
                 if (performance.now() - getNearbyTimeAverageUpdateLastTime >= getNearbyTimeAverageUpdateMs) {
-                    performanceData.getNearbyTimeAverage = performanceData.getNearbyTimeAll.reduce((a, b) => a + b, 0) / performanceData.getNearbyTimeAll.length;
-                    document.getElementById('get-nearby-time-average').textContent = performanceData.getNearbyTimeAverage.toFixed(2);
-                    performanceData.getNearbyTimeAll = [];
+                    performanceDataLocal.getNearbyTimeAverage = performanceDataLocal.getNearbyTimeAll.reduce((a, b) => a + b, 0) / performanceDataLocal.getNearbyTimeAll.length;
+                    document.getElementById('get-nearby-time-average').textContent = performanceDataLocal.getNearbyTimeAverage.toFixed(2);
+                    performanceDataLocal.getNearbyTimeAll = [];
                     getNearbyTimeAverageUpdateLastTime = performance.now();
                 }
-                document.getElementById('get-nearby-time-max').textContent = performanceData.getNearbyTimeMax.toFixed(2);
-                document.getElementById('get-nearby-time-single-average').textContent = (performanceData.getNearbyTimeAverage/(gameState.particleTypes*particles.length)).toFixed(2);
-                document.getElementById('get-nearby-time-run-per-update').textContent = gameState.particleTypes*particles.length;
+                document.getElementById('get-nearby-time-max').textContent = performanceDataLocal.getNearbyTimeMax.toFixed(2);
+                document.getElementById('get-nearby-time-single-average').textContent = performanceData.getNearbyCountsTimes > 0 ? ((performanceDataLocal.getNearbyTimeAverage/performanceData.getNearbyCountsTimes).toFixed(4)) : '不適用';
+                document.getElementById('get-nearby-time-run-per-update').textContent = performanceData.getNearbyCountsTimes;
 
                 document.getElementById('g-Affect-Calc-time').textContent = performanceData.gAffectCalcTime.toFixed(2);
                 if (performance.now() - gAffectCalcTimeAverageUpdateLastTime >= gAffectCalcTimeAverageUpdateMs) {
-                    performanceData.gAffectCalcTimeAverage = performanceData.gAffectCalcTimeAll.reduce((a, b) => a + b, 0) / performanceData.gAffectCalcTimeAll.length;
-                    document.getElementById('g-Affect-Calc-time-average').textContent = performanceData.gAffectCalcTimeAverage.toFixed(2);
-                    performanceData.gAffectCalcTimeAll = [];
+                    performanceDataLocal.gAffectCalcTimeAverage = performanceDataLocal.gAffectCalcTimeAll.reduce((a, b) => a + b, 0) / performanceDataLocal.gAffectCalcTimeAll.length;
+                    document.getElementById('g-Affect-Calc-time-average').textContent = performanceDataLocal.gAffectCalcTimeAverage.toFixed(2);
+                    performanceDataLocal.gAffectCalcTimeAll = [];
                     gAffectCalcTimeAverageUpdateLastTime = performance.now();
                 }
-                document.getElementById('g-Affect-Calc-time-max').textContent = performanceData.gAffectCalcTimeMax.toFixed(2);
-                document.getElementById('g-Affect-Calc-time-single-average').textContent = (performanceData.gAffectCalcTimeAverage/(gameState.particleTypes*particles.length)).toFixed(2);
-                document.getElementById('g-Affect-Calc-time-run-per-update').textContent = gameState.particleTypes*particles.length;
-                
+                document.getElementById('g-Affect-Calc-time-max').textContent = performanceDataLocal.gAffectCalcTimeMax.toFixed(2);
+                document.getElementById('g-Affect-Calc-time-single-average').textContent = performanceData.gAffectCalcCountsTimes > 0 ? ((performanceDataLocal.gAffectCalcTimeAverage/performanceData.gAffectCalcCountsTimes).toFixed(6)) : '不適用';
+                document.getElementById('g-Affect-Calc-time-run-per-update').textContent = performanceData.gAffectCalcCountsTimes;
+                document.getElementById('particleSkippedCountsTimes').textContent = performanceData.particleSkippedCountsTimes;
+                document.getElementById('particleValidCountsTimes').textContent = performanceData.gAffectCalcCountsTimes - performanceData.particleSkippedCountsTimes;
+
                 document.getElementById('position-update-time').textContent = performanceData.positionUpdateTime.toFixed(2);
                 if (performance.now() - positionUpdateTimeAverageUpdateLastTime >= positionUpdateTimeAverageUpdateMs) {
-                    performanceData.positionUpdateTimeAverage = performanceData.positionUpdateTimeAll.reduce((a, b) => a + b, 0) / performanceData.positionUpdateTimeAll.length;
-                    document.getElementById('position-update-time-average').textContent = performanceData.positionUpdateTimeAverage.toFixed(2);
-                    performanceData.positionUpdateTimeAll = [];
+                    performanceDataLocal.positionUpdateTimeAverage = performanceDataLocal.positionUpdateTimeAll.reduce((a, b) => a + b, 0) / performanceDataLocal.positionUpdateTimeAll.length;
+                    document.getElementById('position-update-time-average').textContent = performanceDataLocal.positionUpdateTimeAverage.toFixed(2);
+                    performanceDataLocal.positionUpdateTimeAll = [];
                     positionUpdateTimeAverageUpdateLastTime = performance.now();
                 }
-                document.getElementById('position-update-time-max').textContent = performanceData.positionUpdateTimeMax.toFixed(2);
-                document.getElementById('position-update-time-single-average').textContent = (performanceData.positionUpdateTimeAverage/particles.length).toFixed(2);
-                document.getElementById('position-update-time-run-per-update').textContent = particles.length
+                document.getElementById('position-update-time-max').textContent = performanceDataLocal.positionUpdateTimeMax.toFixed(2);
+                document.getElementById('position-update-time-single-average').textContent = performanceData.positionUpdateCountsTimes > 0 ? ((performanceDataLocal.positionUpdateTimeAverage/performanceData.positionUpdateCountsTimes).toFixed(4)) : '不適用';
+                document.getElementById('position-update-time-run-per-update').textContent = performanceData.positionUpdateCountsTimes;
+
+                document.getElementById('particle-collision-time').textContent = performanceData.particleCollisionTime.toFixed(2);
+                if (performance.now() - particleCollisionTimeAverageUpdateLastTime >= particleCollisionTimeAverageUpdateMs) {
+                    performanceDataLocal.particleCollisionTimeAverage = performanceDataLocal.particleCollisionTimeAll.reduce((a, b) => a + b, 0) / performanceDataLocal.particleCollisionTimeAll.length;
+                    document.getElementById('particle-collision-time-average').textContent = performanceDataLocal.particleCollisionTimeAverage.toFixed(2);
+                    performanceDataLocal.particleCollisionTimeAll = [];
+                    particleCollisionTimeAverageUpdateLastTime = performance.now();
+                }
+                document.getElementById('particle-collision-time-max').textContent = performanceDataLocal.particleCollisionTimeMax.toFixed(2);
+                document.getElementById('particle-collision-time-single-average').textContent = performanceData.particleCollisionCountsTimes > 0 ? ((performanceDataLocal.particleCollisionTimeAverage/performanceData.particleCollisionCountsTimes).toFixed(4)) : '不適用';
+                document.getElementById('particle-collision-time-run-per-update').textContent = performanceData.particleCollisionCountsTimes;
 
                 document.getElementById('Particle-Affect-Calc-time').textContent = performanceData.ParticleAffcetCalcTime.toFixed(2);
                 if (performance.now() - ParticleAffcetCalcTimeAverageUpdateLastTime >= ParticleAffcetCalcTimeAverageUpdateMs) {
-                    performanceData.ParticleAffcetCalcTimeAverage = performanceData.ParticleAffcetCalcTimeAll.reduce((a, b) => a + b, 0) / performanceData.ParticleAffcetCalcTimeAll.length;
-                    document.getElementById('Particle-Affect-Calc-time-average').textContent = performanceData.ParticleAffcetCalcTimeAverage.toFixed(2);
-                    performanceData.ParticleAffcetCalcTimeAll = [];
+                    performanceDataLocal.ParticleAffcetCalcTimeAverage = performanceDataLocal.ParticleAffcetCalcTimeAll.reduce((a, b) => a + b, 0) / performanceDataLocal.ParticleAffcetCalcTimeAll.length;
+                    document.getElementById('Particle-Affect-Calc-time-average').textContent = performanceDataLocal.ParticleAffcetCalcTimeAverage.toFixed(2);
+                    performanceDataLocal.ParticleAffcetCalcTimeAll = [];
                     ParticleAffcetCalcTimeAverageUpdateLastTime = performance.now();
                 }
-                document.getElementById('Particle-Affect-Calc-time-max').textContent = performanceData.ParticleAffcetCalcTimeMax.toFixed(2);
+                document.getElementById('Particle-Affect-Calc-time-max').textContent = performanceDataLocal.ParticleAffcetCalcTimeMax.toFixed(2);
 
                 // 更新選中粒子的屬性顯示
                 if (gameState.enableParticleAffcetRadiusShow){
@@ -969,6 +1050,7 @@
                                 `\n`,
                                 `類型: ${selectedParticle.type + 1}`,
                                 `位置: (${selectedParticle.x.toFixed(2)}, ${selectedParticle.y.toFixed(2)})`,
+                                `網格位置: (${selectedParticle.gridX}, ${selectedParticle.gridY})`,
                                 `速度: (${selectedParticle.vx.toFixed(2)}, ${selectedParticle.vy.toFixed(2)})`,
                                 `顏色: ${selectedParticle.color}`,
                                 `是否在邊界外: ${selectedParticle.isOutside ? '是' : '否'}`
@@ -991,7 +1073,7 @@
                     frameCount = 0;
                     lastTime = currentTime;
                 }
-                gameUPS = (1000 / (performanceData.totalTimeAverage)).toFixed(0);
+                gameUPS = performanceDataLocal.updateIntervalCountsTimes;
                 document.getElementById('gameUPS').textContent = gameUPS;
                 requestAnimationFrame(() => {
                     worker.postMessage({ type: 'canUpdate' });
@@ -1005,14 +1087,15 @@
                     particles = e.data.particles;
                     particleGroups = e.data.particleGroups;
                     gameState.gridData.nearbyCells = e.data.nearbyCells;
+                    //console.log(`e.data.nearbyCellsSkipped: ${e.data.nearbyCellsSkipped}`);
+                    gameState.gridData.nearbyCellsSkipped = e.data.nearbyCellsSkipped;
+                    //console.log(`gameState.gridData.nearbyCellsSkipped: ${gameState.gridData.nearbyCellsSkipped}`);
+                    gameState.gridData.radiusCells = e.data.radiusCells;
                     gameState.gridData.width = e.data.gridDataWidth;
                     gameState.gridData.height = e.data.gridDataHeight;
-                    performanceData.totalTime = e.data.performanceData.totalTime;
-                    performanceData.gridResetTime = e.data.performanceData.gridResetTime
-                    performanceData.getNearbyTime = e.data.performanceData.getNearbyTime
-                    performanceData.gAffectCalcTime = e.data.performanceData.gAffectCalcTime;
-                    performanceData.positionUpdateTime = e.data.performanceData.positionUpdateTime;
-                    performanceData.ParticleAffcetCalcTime = e.data.performanceData.ParticleAffcetCalcTime;
+                    //console.log(`before performanceDataLocal.totalTimeAverage: ${performanceDataLocal.totalTimeAverage}`);
+                    performanceData = e.data.performanceData;
+                    //console.log(`after performanceDataLocal.totalTimeAverage: ${performanceDataLocal.totalTimeAverage}`);
                     if (gameState.enableParticleAffcetRadiusShow){
                         gameState.nearbyParticlesList = e.data.nearbyParticlesList;
                         for (let i = 0; i < gameState.nearbyParticlesList.length; i++) {
@@ -1024,6 +1107,20 @@
                     // 更新網格寬度和高度的顯示
                     document.getElementById('grid-width').textContent = gameState.gridData.width;
                     document.getElementById('grid-height').textContent = gameState.gridData.height;
+                    if (gameState.gridData.radiusCells){
+                        document.getElementById('grid-radius-cells').textContent = `${gameState.gridData.radiusCells}`;
+                    }
+                }
+                if (e.data.type === 'updateCellSize') {
+                    gameState.gridData.cellSize = e.data.cellSize;
+                    document.getElementById('cell-size').value = gameState.gridData.cellSize;
+                    document.getElementById('cell-size').dispatchEvent(new Event('input'));
+                }
+                if (e.data.type === 'setMovingCanvas') {
+                    gameState.isMovingCanvas = e.data.isMovingCanvas;
+                }
+                if (e.data.type === 'updateUpdateIntervalCountsTimes') {
+                    performanceDataLocal.updateIntervalCountsTimes = e.data.updateIntervalCountsTimes;
                 }
             };
 
@@ -1091,8 +1188,8 @@
             function exportRules() {
                 const rules = {};
                 // 添加規則
-                rules['force'] = gameState.forceMatrix;
-                rules['distance'] = gameState.distanceMatrix;
+                rules['forceMatrix'] = gameState.forceMatrix;
+                rules['distanceMatrix'] = gameState.distanceMatrix;
                 // 添加粒子數量
                 rules['particleCounts'] = gameState.particleCounts;
                 // 添加粒子類型
@@ -1100,7 +1197,7 @@
                 // 添加粒子顏色
                 rules['particleColors'] = gameState.particleColors;
                 // 添加穿透模式狀態
-                rules['isThrough'] = document.getElementById('isThrough').checked;
+                rules['isThrough'] = gameState.isThrough;
                 rules['tHalf'] = gameState.tHalf;
                 rules['dt'] = gameState.dt;
                 rules['mouseForce'] = gameState.mouseForce;
@@ -1125,6 +1222,7 @@
             }
 
             function handleFileSelect(event) {
+                //console.log('handleFileSelect');
                 const file = event.target.files[0];
                 const shouldRestart = event.target.dataset.shouldRestart === 'true';
                 if (file) {
@@ -1134,9 +1232,7 @@
                         Object.keys(rules).forEach(id => {
                             if (id === 'isThrough') {
                                 // 設置穿透模式狀態
-                                const throughCheckbox = document.getElementById('isThrough');
-                                throughCheckbox.checked = rules[id];
-                                throughCheckbox.dispatchEvent(new Event('change'));
+                                gameState.isThrough = rules[id];
                             } else if (id === 'particleCounts') {
                                 gameState.particleCounts = rules[id];
                             } else if (id === 'particleTypes') {
@@ -1151,20 +1247,49 @@
                                 gameState.mouseForce = rules[id];
                             } else if (id === 'gridData') {
                                 gameState.gridData = rules[id];
-                            } else if (id === 'forceMatrix') {
+                            } else if (/force(Matrix)*?/.test(id)) {
                                 gameState.forceMatrix = rules[id];
-                            } else if (id === 'distanceMatrix') {
+                            } else if (/distance(Matrix)*?/.test(id)) {
                                 gameState.distanceMatrix = rules[id];
                             }
-                            updateHTML();
                         });
-                        updateRules();
+                        gameState.gridData.selectedCell = null;
+                        //console.log('updateParticleSystem');
+                        updateParticleSystem();
+                        //console.log('updateEveryThing');
+                        updateEveryThing();
                         if (shouldRestart) {
                             setTimeout(initGame, 100);
                         }
                     };
                     reader.readAsText(file);
                 }
+            }
+
+            // 更新HTML
+            function updateHTML(){
+                const throughCheckbox = document.getElementById('isThrough');
+                const particleTypes = document.getElementById('particle-types');
+                const cellSize = document.getElementById('cell-size');
+                const setectGridDistance = document.getElementById('setectGridDistance');
+                const updateInterval = document.getElementById('updateInterval');
+                const tHalf = document.getElementById('t-half');
+                const mouseForce = document.getElementById('mouse-force');
+
+                particleTypes.value = gameState.particleTypes;
+                throughCheckbox.checked = gameState.isThrough;
+                throughCheckbox.dispatchEvent(new Event('change'));
+                cellSize.value = gameState.gridData.cellSize;
+                cellSize.dispatchEvent(new Event('input'));
+                setectGridDistance.value = gameState.setectGridDistance;
+                setectGridDistance.dispatchEvent(new Event('input'));
+                updateInterval.value = gameState.updateInterval;
+                updateInterval.dispatchEvent(new Event('input'));
+                tHalf.value = gameState.tHalf;
+                tHalf.dispatchEvent(new Event('input'));
+                mouseForce.value = gameState.mouseForce;
+                mouseForce.dispatchEvent(new Event('input'));
+
             }
 
             // 更新顏色
@@ -1194,7 +1319,36 @@
             // 穿透模式切換
             const throughCheckbox = document.getElementById("isThrough");
             throughCheckbox.addEventListener('change', () => {
-                worker.postMessage({ type: 'setThrough', isThrough: throughCheckbox.checked });
+                gameState.isThrough = throughCheckbox.checked;
+                worker.postMessage({ type: 'setThrough', isThrough: gameState.isThrough });
+            });
+
+            // 使用網格功能切換
+            const isUsingGridCheckbox = document.getElementById("isUsingGrid");
+            isUsingGridCheckbox.addEventListener('change', () => {
+                gameState.isUsingGrid = isUsingGridCheckbox.checked;
+                if (gameState.isUsingGrid) {
+                    gameState.isUsingMultithread = false;
+                    isUsingMultithreadCheckbox.checked = false;
+                    isUsingMultithreadCheckbox.dispatchEvent(new Event('change'));
+                }
+                setTimeout(() => {
+                    worker.postMessage({ type: 'setIsUsingGrid', isUsingGrid: gameState.isUsingGrid });
+                }, 100);
+            });
+
+            // 使用多線程功能切換
+            const isUsingMultithreadCheckbox = document.getElementById("isUsingMultithread");
+            isUsingMultithreadCheckbox.addEventListener('change', () => {
+                gameState.isUsingMultithread = isUsingMultithreadCheckbox.checked;
+                if (gameState.isUsingMultithread) {
+                    gameState.isUsingGrid = false;
+                    isUsingGridCheckbox.checked = false;
+                    isUsingGridCheckbox.dispatchEvent(new Event('change'));
+                }
+                setTimeout(() => {
+                    worker.postMessage({ type: 'setMultithread', enabled: gameState.isUsingMultithread });
+                }, 100);
             });
             
             // 添加按鈕事件監聽器
@@ -1214,12 +1368,20 @@
                 if (event.key === "x") {
                     isUpdateMouseDownUp = false;
                 }
-                if (event.key === "m") {
+                if (event.key === "z") {
                     isUpdateMouse = false;
                 }
                 if (event.key === "t") {
                     throughCheckbox.checked = !throughCheckbox.checked;
                     throughCheckbox.dispatchEvent(new Event('change'));
+                }
+                if (event.key === "g") {
+                    isUsingGridCheckbox.checked = !isUsingGridCheckbox.checked;
+                    isUsingGridCheckbox.dispatchEvent(new Event('change'));
+                }
+                if (event.key === "m") {
+                    isUsingMultithreadCheckbox.checked = !isUsingMultithreadCheckbox.checked;
+                    isUsingMultithreadCheckbox.dispatchEvent(new Event('change'));
                 }
             });
 
@@ -1280,6 +1442,7 @@
                 worker.postMessage({ type: 'updateTHalf', tHalf: gameState.tHalf });
             }
             function updateEveryThing(){
+                updateHTML();
                 updateRules();
                 updateColors();
                 updateMouseForce();
@@ -1398,48 +1561,48 @@
             */
            
             function initializeMatrices(types, oldForceMatrix, oldDistanceMatrix) {
-                forceMatrix = [];
+                forceMatrix = new Array(types);
                 for (let i = 0; i < types; i++) {
-                    forceMatrix.push([]);
+                    forceMatrix[i] = new Array(types);
                     for (let j = 0; j < types; j++) {
                         // Keep old force value if available, otherwise use 0
-                        forceMatrix[i].push(oldForceMatrix && i < oldForceMatrix.length && j < oldForceMatrix[i].length ? 
-                            oldForceMatrix[i][j] : Math.random()*2-1);
+                        forceMatrix[i][j] = oldForceMatrix && i < oldForceMatrix.length && j < oldForceMatrix[i].length ? 
+                            oldForceMatrix[i][j] : Math.random()*2-1;
                     }
                 }
                 gameState.forceMatrix = forceMatrix;
                 //console.log(`index.html: forceMatrix: ${forceMatrix}`);
                 
-                distanceMatrix = [];
+                distanceMatrix = new Array(types);
                 for (let i = 0; i < types; i++) {
-                    distanceMatrix.push([]);
+                    distanceMatrix[i] = new Array(types);
                     for (let j = 0; j < types; j++) {
                         // Keep old distance value if available, otherwise use 100
-                        distanceMatrix[i].push(oldDistanceMatrix && i < oldDistanceMatrix.length && j < oldDistanceMatrix[i].length ?
-                            oldDistanceMatrix[i][j] : 150);
+                        distanceMatrix[i][j] = oldDistanceMatrix && i < oldDistanceMatrix.length && j < oldDistanceMatrix[i].length ?
+                            oldDistanceMatrix[i][j] : 150;
                     }
                 }
                 gameState.distanceMatrix = distanceMatrix;
                 //console.log(`index.html: distanceMatrix: ${distanceMatrix}`);
                 
-                particleGroups = [];
+                particleGroups = new Array(types);
                 for (let i = 0; i < types; i++) {
-                    particleGroups.push([]);
+                    particleGroups[i] = [];
                 }
                 gameState.particleGroups = particleGroups;
                 //console.log(`index.html: particleGroups: ${particleGroups}`);
             }
             function initializeColors(types) {
-                particleColors = [];
+                particleColors = new Array(types);
                 for (let i = 0; i < types; i++) {
-                    particleColors.push(`hsl(${i * 360 / types}, 100%, 50%)`);
+                    particleColors[i] = `hsl(${i * 360 / types}, 100%, 50%)`;
                 }
                 gameState.particleColors = particleColors;
             }
             function initializeParticleCounts(types) {
-                particleCounts = [];
+                particleCounts = new Array(types);
                 for (let i = 0; i < types; i++) {
-                    particleCounts.push(gameState.particleCounts[i] || 250);
+                    particleCounts[i] = gameState.particleCounts[i] || 250;
                 }
                 gameState.particleCounts = particleCounts;
             }
@@ -1582,7 +1745,6 @@
                 `;
                 
                 particleAffcetRadiusShow.innerHTML = '';
-                
                 for (let i = 0; i < types; i++) {
                     particleAffcetRadiusShow.innerHTML += `
                         <div class="particle-affcet-radius-show">
@@ -1602,8 +1764,6 @@
                 setupParticleControlEventListeners();
                 setupMatrixEventListeners();
                 setupParticleAffcetRadiusShowEventListeners();
-                // 重新初始化粒子系統
-                initGame();
             }
             // 設置粒子控制的事件監聽器
             function setupParticleControlEventListeners() {
