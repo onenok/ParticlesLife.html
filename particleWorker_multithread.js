@@ -91,9 +91,9 @@ class Grid {
         this.height = Math.ceil(height / cellSize); // 網格高度
         this.cells = new Array(this.width * this.height).fill().map(() => []); // 網格單元數組
 
-        this.nearbyCache = new Array(ParticlesCount); // 附近粒子數組
-        this.offsetsX = new Float32Array(ParticlesCount); // 偏移量X
-        this.offsetsY = new Float32Array(ParticlesCount); // 偏移量Y
+        this.nearbyCache = new Array(ParticlesCount * 4); // 附近粒子數組
+        this.offsetsX = new Float32Array(ParticlesCount * 4); // 偏移量X
+        this.offsetsY = new Float32Array(ParticlesCount * 4); // 偏移量Y
         this.offsetsCache = 0;  // 偏移量數量
         this.nearbyCells = new Array(this.width * this.height); // 附近單元數組
         this.nearbyCellsCache = 0;  // 附近單元數量

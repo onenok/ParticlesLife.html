@@ -379,6 +379,27 @@
         .color-inputs input[type="range"] {
             flex: 1;
         }
+        .no-hit-box {
+            pointer-events: none;
+            position: absolute;
+            background: none;
+            border: none;
+            margin: 4%;
+            padding: 2px 5px;
+            width: 70px;
+            height: 20px;
+            box-sizing: border-box;
+            font-size: 13px;
+            color: #2e2e2e;
+            left: 0;
+            top: 0;
+            color: white;
+        }
+
+        .input-container {
+            position: relative;
+            display: inline-block;
+        }
     </style>
 </head>
 
@@ -454,26 +475,14 @@
         </div>
 
         <div>
-            <label for="updateInterval">最大更新間隔(ms):</label>
-            <input type="range" id="updateInterval" min="1" max="50" step="0.01" value="16.66">
-            <input type="number" id="updateInterval-number" min="1" max="50" step="0.01" value="16.66">
-            <select id="updateInterval-unit">
-                <option value="33.33">30 UPS</option>
-                <option value="16.66" selected>60 UPS</option>
-                <option value="8.33">120 UPS</option>
-                <option value="6.94">144 UPS</option>
-                <option value="6.06">165 UPS</option>
-                <option value="4.16">240 UPS</option>
-                <option value="2.77">360 UPS</option>
-                <option value="2.08">480 UPS</option>
-                <option value="2.00">500 UPS</option>
-                <option value="1.85">540 UPS</option>
-                <option value="1.66">600 UPS</option>
-                <option value="1.38">720 UPS</option>
-            </select>
-            <p>UPS: Update Per Second，每秒更新次數</p>
-            <p>注意: 更新間隔越短，粒子運動越流暢。</p>
-            <p class="description">如果你的電腦並不能運行到那麼短的更新間隔，\n那麼你的電腦就無法運行到那麼短的更新間隔。</p>
+            <label for="updateInterval">最大更新次數上限:</label>
+            <input type="range" id="updateInterval" min="0" max="1000" step="1" value="0">
+            <div class="input-container">
+                <input type="number" id="updateInterval-number" min="0" max="1000" step="1" value="0">
+                <input class="no-hit-box" type="text" id="updateInterval-text" value="無上限" readonly>
+            </div>
+            <p class="description">UPS: Update Per Second，每秒更新次數</p>
+            <p class="description">注意: 此功能用於鎖定更新間隔上限，如果電腦不能運行到那麼短的更新間隔，那麼你的電腦就無法運行到那麼短的更新間隔。</p>
         </div>
         <div class="toggle-container">
             <label for="isUsingGrid" class="toggle-label">𝄜 使用網格分割(g)</label>
@@ -499,6 +508,10 @@
                 <br>當前: <span id="total-time"></span> ms 
                 <br>平均: <span id="total-time-average"></span> ms
                 <br>最大: <span id="total-time-max"></span> ms
+            </p>
+            <p>粒子更新時間加法顯示:
+                <br>網格重置時間 + 取得附近粒子時間 + 重力影響計算時間 + 更新位置時間 + 粒子碰撞計算時間 + 粒子影響範圍計算時間
+                <br><span id="total-time-add-show"></span>
             </p>
             <p>網格重置時間: 
                 <br>當前: <span id="grid-reset-time"></span> ms 
@@ -662,7 +675,7 @@
             ballRadius: 1.5,
             RadiusShow: [true, true, true],
             // 更新控制
-            updateInterval: 16.66,    // 約 60 FPS
+            updateInterval: 0,    // 0 為無上限
             isMovingCanvas: false
         };
         document.addEventListener('DOMContentLoaded', () => {
@@ -1075,6 +1088,17 @@
                 }
                 gameUPS = performanceDataLocal.updateIntervalCountsTimes;
                 document.getElementById('gameUPS').textContent = gameUPS;
+                
+                let totalTimeAddShowContent = '';
+                const totalTimeAddShowContentList = [Number(performanceDataLocal.gridResetTimeAverage.toFixed(2)), Number(performanceDataLocal.getNearbyTimeAverage.toFixed(2)), Number(performanceDataLocal.gAffectCalcTimeAverage.toFixed(2)), Number(performanceDataLocal.positionUpdateTimeAverage.toFixed(2)), Number(performanceDataLocal.particleCollisionTimeAverage.toFixed(2)), Number(performanceDataLocal.ParticleAffcetCalcTimeAverage.toFixed(2))];
+                totalTimeAddShowContent += `${totalTimeAddShowContentList.join(' + ')}<br><br>`;
+                let sum = 0;
+                for (let i = 2; i <= totalTimeAddShowContentList.length; i++) {
+                    sum = totalTimeAddShowContentList.slice(0, i).reduce((a, b) => a + b, 0);
+                    totalTimeAddShowContent += `${sum}${totalTimeAddShowContentList.slice(i).length > 0 ? ` + ${totalTimeAddShowContentList.slice(i).join(' + ')}` : ''}<br><br>`;
+                }
+                document.getElementById('total-time-add-show').innerHTML = totalTimeAddShowContent;
+
                 requestAnimationFrame(() => {
                     worker.postMessage({ type: 'canUpdate' });
                     update();
@@ -1496,27 +1520,28 @@
             // 為更新間隔滑塊添加事件監聽器
             const updateIntervalSlider = document.getElementById('updateInterval');
             const updateIntervalNumber = document.getElementById('updateInterval-number');
-            const updateIntervalUnit = document.getElementById('updateInterval-unit');
+            const updateIntervalText = document.getElementById('updateInterval-text');
             updateIntervalSlider.addEventListener('input', () => {
-                updateIntervalNumber.value = updateIntervalSlider.value;
-                updateIntervalUnit.selectedIndex = [...updateIntervalUnit.options].reduce((closest, option) => {
-                    const distance = Math.abs(option.value - updateIntervalSlider.value);
-                    return (distance < closest.distance) ? {option: option, distance: distance} : closest;
-                }, {option: null, distance: Infinity}).option.index;
-                worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalSlider.value) });
+                const value = updateIntervalSlider.value;
+                if (value == 0) {
+                    updateIntervalNumber.value = null;
+                    updateIntervalText.value = "無上限";
+                } else {
+                    updateIntervalNumber.value = value;
+                    updateIntervalText.value = '';
+                }
+                worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(value == 0 ? 0 : 1000 / value) });
             });
             updateIntervalNumber.addEventListener('input', () => {
-                updateIntervalSlider.value = updateIntervalNumber.value;
-                updateIntervalUnit.selectedIndex = [...updateIntervalUnit.options].reduce((closest, option) => {
-                    const distance = Math.abs(option.value - updateIntervalNumber.value);
-                    return (distance < closest.distance) ? {option: option, distance: distance} : closest;
-                }, {option: null, distance: Infinity}).option.index;
-                worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalNumber.value) });
-            }); 
-            updateIntervalUnit.addEventListener('change', () => {
-                worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(updateIntervalUnit.value) });
-                updateIntervalSlider.value = updateIntervalUnit.value;
-                updateIntervalNumber.value = updateIntervalUnit.value;
+                const value = updateIntervalNumber.value;
+                updateIntervalSlider.value = value;
+                if (value == 0) {
+                    updateIntervalText.value = "無上限";
+                    updateIntervalNumber.value = null;
+                } else {
+                    updateIntervalText.value = '';
+                }
+                worker.postMessage({ type: 'updateUpdateInterval', interval: parseInt(value == 0 ? 0 : 1000 / value) });
             });
 
             // 添加t_half控制事件監聽器

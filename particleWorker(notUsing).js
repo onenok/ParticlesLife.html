@@ -151,10 +151,10 @@ class Grid {
         this.cells = new Array(this.width * this.height).fill().map(() => []);
         
         // 性能優化：預分配緩存數組
-        this.nearbyCache = new Array(ParticlesCount);
+        this.nearbyCache = new Array(ParticlesCount * 4);
         // 設置為總粒子數減1
-        this.offsetsX = new Float32Array(ParticlesCount);
-        this.offsetsY = new Float32Array(ParticlesCount);
+        this.offsetsX = new Float32Array(ParticlesCount * 4);
+        this.offsetsY = new Float32Array(ParticlesCount * 4);
         this.offsetsCache = 0;
         this.nearbyCells = new Array(this.width * this.height);
         this.nearbyCellsCache = 0;
