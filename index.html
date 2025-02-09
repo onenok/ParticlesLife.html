@@ -580,8 +580,8 @@
             </div>
             <div>
                 <label for="cell-size">網格大小:</label>
-                <input type="range" id="cell-size" min="10" max="100" step="1" value="50">
-                <input type="number" id="cell-size-number" min="10" max="100" step="1" value="50">
+                <input type="range" id="cell-size" min="40" max="200" step="1" value="50">
+                <input type="number" id="cell-size-number" min="40" max="200" step="1" value="50">
             </div>
         </div>
 
@@ -1095,7 +1095,7 @@
                 let sum = 0;
                 for (let i = 2; i <= totalTimeAddShowContentList.length; i++) {
                     sum = totalTimeAddShowContentList.slice(0, i).reduce((a, b) => a + b, 0);
-                    totalTimeAddShowContent += `${sum}${totalTimeAddShowContentList.slice(i).length > 0 ? ` + ${totalTimeAddShowContentList.slice(i).join(' + ')}` : ''}<br><br>`;
+                    totalTimeAddShowContent += `${Number(sum.toFixed(2))}${totalTimeAddShowContentList.slice(i).length > 0 ? ` + ${totalTimeAddShowContentList.slice(i).join(' + ')}` : ''}<br><br>`;
                 }
                 document.getElementById('total-time-add-show').innerHTML = totalTimeAddShowContent;
 

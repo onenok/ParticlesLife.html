@@ -74,9 +74,10 @@ let currentTHalf = DEFAULT_T_HALF;  // 當前半衰期
 const BETA = 0.3;                // 阻尼係數
 let newGridNearByCacheLen = 0;
 let getNearbyNearByCacheLen = 0;
+let theClosestDistance = 0;
 
 // >>> 網格系統常量 <<<
-const MAX_PARTICLES_PER_CELL = 100;  // 每個網格單元最大粒子數
+const MAX_PARTICLES_PER_CELL = 500;  // 每個網格單元最大粒子數
 
 // =============== 原有類別定義 ===============
 // --Grid類用於優化粒子間相互作用的計算--
@@ -99,7 +100,7 @@ class Grid {
         this.nearbyCellsCache = 0;  // 附近單元數量
         this.nearbyCellsSkipped = new Array(this.width * this.height); // 跳過單元數組
         this.nearbyCellsSkippedCache = 0; // 跳過單元數量
-        newGridNearByCacheLen = this.nearbyCache.length;
+        //newGridNearByCacheLen = this.nearbyCache.length;
     }
 
     // --清空網格--
@@ -161,7 +162,7 @@ class Grid {
 
     // --獲取附近粒子--
     getNearby(particle, radius, isThrough) {
-        getNearbyNearByCacheLen = this.nearbyCache.length;
+        //getNearbyNearByCacheLen = this.nearbyCache.length;
         // 清空緩存數組
         this.offsetsCache = 0;  // 偏移量數量
 
@@ -237,7 +238,7 @@ class Grid {
             }
         }
         
-        if (this.offsetsX.length < this.offsetsCache || this.offsetsY.length < this.offsetsCache) {
+        /*if (this.offsetsX.length < this.offsetsCache || this.offsetsY.length < this.offsetsCache) {
             console.log(`bug detected in getNearby: `, {
                 "offsetsX": this.offsetsX,
                 "offsetsY": this.offsetsY,
@@ -252,14 +253,17 @@ class Grid {
                 "thisCells": this.cells,
             });
             throw new Error;
-        }
+        }*/
+
         // --返回附近粒子--
         return {
-            particles: this.nearbyCache.slice(0, this.offsetsCache), // 附近粒子
-            offsetsX: this.offsetsX.slice(0, this.offsetsCache), // 偏移量X
-            offsetsY: this.offsetsY.slice(0, this.offsetsCache), // 偏移量Y
+            particles: this.nearbyCache, // 附近粒子
+            offsetsX: this.offsetsX, // 偏移量X
+            offsetsY: this.offsetsY, // 偏移量Y
             offsetCount: this.offsetsCache // 偏移量數量
         };
+
+
     }
 
     // --獲取附近粒子(正常情況下)--
@@ -382,110 +386,219 @@ class Grid {
 // --MultithreadGrid類處理多線程環境下的粒子網格計算--
 class MultithreadGrid {
     constructor(cellSize, width, height, ParticlesCount) {
-        this.cellSize = cellSize;                     // 網格單元大小   
+        // -- 基本屬性初始化 --
+        this.cellSize = cellSize;                     // 網格單元大小
         this.canvasWidth = width;                     // 畫布寬度
         this.canvasHeight = height;                   // 畫布高度
         this.isNotGridPerfectlyFit = (width % this.cellSize == 0 && height % this.cellSize == 0) ? 0 : 1;  // 檢查網格是否完美適配畫布
         this.width = Math.ceil(width / cellSize);     // 計算網格寬度(單元數)
         this.height = Math.ceil(height / cellSize);   // 計算網格高度(單元數)
+        
+        // -- 計算每個網格的最大粒子數 --
+        // 使用圓形填充理論計算
+        const CIRCLE_PACKING_DENSITY = 0.9069;  // 最緊密六邊形排列的填充率
+        const cellArea = cellSize * cellSize;    // 網格單元面積
+        const particleArea = Math.PI * ballRadius * ballRadius;  // 單個粒子面積
+        const theoreticalMaxParticles = Math.floor((cellArea * CIRCLE_PACKING_DENSITY) / particleArea);  // 理論最大粒子數
+        // 為了處理邊界情況和動態移動，我們增加50%的緩衝空間
+        this.MAX_PARTICLES_PER_CELL = Math.max(100, Math.ceil(theoreticalMaxParticles * 1.5));
 
-        // 為網格單元分配共享內存
-        this.cellsBuffer = new SharedArrayBuffer(this.width * this.height * 4 * Int32Array.BYTES_PER_ELEMENT);  // 分配網格緩衝區
+        // -- 網格單元內存分配 --
+        const totalCells = this.width * this.height;  // 總網格數
+        
+        // 分配足夠的內存來存儲所有網格的計數器和粒子索引
+        this.cellsBuffer = new SharedArrayBuffer(
+            (totalCells + totalCells * this.MAX_PARTICLES_PER_CELL) * Int32Array.BYTES_PER_ELEMENT
+        );
+        
         this.cells = {
-            count: new Int32Array(this.cellsBuffer, 0, this.width * this.height),                              // 每個單元的粒子計數
-            particles: new Int32Array(this.cellsBuffer, this.width * this.height * Int32Array.BYTES_PER_ELEMENT)  // 存儲粒子索引
+            count: new Int32Array(this.cellsBuffer, 0, totalCells),  // 計數器
+            particles: new Int32Array(  // 粒子索引
+                this.cellsBuffer, 
+                totalCells * Int32Array.BYTES_PER_ELEMENT,
+                totalCells * this.MAX_PARTICLES_PER_CELL
+            )
         };
 
-        // 為粒子數據分配共享內存
-        this.particleBuffer = new SharedArrayBuffer(ParticlesCount * 8 * Float32Array.BYTES_PER_ELEMENT);      // 分配粒子數據緩衝區
+        // -- 粒子數據內存分配 --
+        this.particleDataBuffer = new SharedArrayBuffer(ParticlesCount * 8 * Float64Array.BYTES_PER_ELEMENT);  // 分配粒子數據內存
         this.particleData = {
-            x: new Float32Array(this.particleBuffer, 0, ParticlesCount),                                       // 粒子X坐標
-            y: new Float32Array(this.particleBuffer, ParticlesCount * Float32Array.BYTES_PER_ELEMENT),         // 粒子Y坐標
-            vx: new Float32Array(this.particleBuffer, 2 * ParticlesCount * Float32Array.BYTES_PER_ELEMENT),    // X方向速度
-            vy: new Float32Array(this.particleBuffer, 3 * ParticlesCount * Float32Array.BYTES_PER_ELEMENT),    // Y方向速度
-            ax: new Float32Array(this.particleBuffer, 4 * ParticlesCount * Float32Array.BYTES_PER_ELEMENT),    // X方向加速度
-            ay: new Float32Array(this.particleBuffer, 5 * ParticlesCount * Float32Array.BYTES_PER_ELEMENT),    // Y方向加速度
-            gridX: new Int32Array(this.particleBuffer, 6 * ParticlesCount * Float32Array.BYTES_PER_ELEMENT),   // 網格X索引
-            gridY: new Int32Array(this.particleBuffer, 7 * ParticlesCount * Float32Array.BYTES_PER_ELEMENT)    // 網格Y索引
+            x: new Float64Array(this.particleDataBuffer, 0, ParticlesCount),
+            y: new Float64Array(this.particleDataBuffer, ParticlesCount * Float64Array.BYTES_PER_ELEMENT, ParticlesCount),
+            vx: new Float64Array(this.particleDataBuffer, 2 * ParticlesCount * Float64Array.BYTES_PER_ELEMENT, ParticlesCount),
+            vy: new Float64Array(this.particleDataBuffer, 3 * ParticlesCount * Float64Array.BYTES_PER_ELEMENT, ParticlesCount),
+            gridX: new Int32Array(this.particleDataBuffer, 4 * ParticlesCount * Float64Array.BYTES_PER_ELEMENT, ParticlesCount),
+            gridY: new Int32Array(this.particleDataBuffer, 5 * ParticlesCount * Float64Array.BYTES_PER_ELEMENT, ParticlesCount)
         };
 
-        // 同步機制
-        this.syncBuffer = new SharedArrayBuffer(4);           // 創建同步緩衝區
-        this.syncCounter = new Int32Array(this.syncBuffer);   // 用於線程同步的計數器
+        // -- 附近粒子查找緩存 --
+        this.nearbyBuffer = new SharedArrayBuffer(ParticlesCount * 4 * Int32Array.BYTES_PER_ELEMENT);
+        this.nearbyCache = new Int32Array(this.nearbyBuffer);
+        this.offsetsXBuffer = new SharedArrayBuffer(ParticlesCount * 4 * Float64Array.BYTES_PER_ELEMENT);
+        this.offsetsX = new Float64Array(this.offsetsXBuffer);
+        this.offsetsYBuffer = new SharedArrayBuffer(ParticlesCount * 4 * Float64Array.BYTES_PER_ELEMENT);
+        this.offsetsY = new Float64Array(this.offsetsYBuffer);
+        this.offsetsCache = 0;
+
+        // -- 同步機制 --
+        this.syncBuffer = new SharedArrayBuffer(4);
+        this.syncCounter = new Int32Array(this.syncBuffer);
     }
 
+    add(particle, index) {
+        // -- 計算網格索引 --
+        const cellX = Math.floor(particle.x / this.cellSize);    // 計算X網格座標
+        const cellY = Math.floor(particle.y / this.cellSize);    // 計算Y網格座標
+        
+        // -- 更新粒子網格位置 --
+        particle.gridX = cellX;    // 設置X網格索引
+        particle.gridY = cellY;    // 設置Y網格索引
+        
+        // -- 更新共享內存中的粒子數據 --
+        this.particleData.x[index] = particle.x;     // 存儲X座標
+        this.particleData.y[index] = particle.y;     // 存儲Y座標
+        this.particleData.vx[index] = particle.vx;   // 存儲X速度
+        this.particleData.vy[index] = particle.vy;   // 存儲Y速度
+        Atomics.store(this.particleData.gridX, index, cellX);      // 存儲X網格索引
+        Atomics.store(this.particleData.gridY, index, cellY);      // 存儲Y網格索引
+
+        // -- 檢查並添加到網格 --
+        if (cellX >= 0 && cellX < this.width && cellY >= 0 && cellY < this.height) {
+            const cellIndex = cellY * this.width + cellX;    // 計算網格線性索引
+            
+            // -- 原子操作處理粒子計數 --
+            const count = Atomics.add(this.cells.count, cellIndex, 1);    // 增加單元格粒子計數
+            
+            // -- 檢查單元格容量 --
+            if (count >= this.MAX_PARTICLES_PER_CELL) {
+                Atomics.sub(this.cells.count, cellIndex, 1);    // 回退計數器
+                console.warn('Cell capacity exceeded:', {
+                    cellX, cellY, count, maxParticles: this.MAX_PARTICLES_PER_CELL
+                });
+                throw new Error('Cell capacity exceeded');
+            }
+
+            try {
+                // -- 存儲粒子索引 --
+                const storeIndex = cellIndex * this.MAX_PARTICLES_PER_CELL + count;    // 計算存儲索引
+                Atomics.store(this.cells.particles, storeIndex, index);    // 存儲粒子索引
+                return true;    // 返回添加成功
+            } catch (error) {
+                // -- 錯誤處理 --
+                Atomics.sub(this.cells.count, cellIndex, 1);    // 回退計數器
+                console.error('Failed to store particle:', {
+                    error,
+                    cellIndex,
+                    count,
+                    index,
+                    storeIndex: cellIndex * this.MAX_PARTICLES_PER_CELL + count
+                });
+                throw new Error('Failed to store particle');
+            }
+        }
+        throw new Error('Particle out of grid');
+
+    }
+
+    // >>>> 網格管理方法 <<<<
     clear() {
+        // --重置網格狀態--
         Atomics.store(this.syncCounter, 0, 0);               // 重置同步計數器
         for (let i = 0; i < this.cells.count.length; i++) {
             Atomics.store(this.cells.count, i, 0);           // 重置每個單元的粒子計數
         }
     }
 
-    add(particle, index) {
-        const cellX = Math.floor(particle.x / this.cellSize);    // 計算粒子所在的網格X索引
-        const cellY = Math.floor(particle.y / this.cellSize);    // 計算粒子所在的網格Y索引
-        
-        // 更新粒子數據到共享內存
-        this.particleData.x[index] = particle.x;             // 存儲X坐標
-        this.particleData.y[index] = particle.y;             // 存儲Y坐標
-        this.particleData.vx[index] = particle.vx;           // 存儲X速度
-        this.particleData.vy[index] = particle.vy;           // 存儲Y速度
-        this.particleData.gridX[index] = cellX;              // 存儲網格X索引
-        this.particleData.gridY[index] = cellY;              // 存儲網格Y索引
-
-        // 檢查粒子是否在有效網格範圍內
-        if (cellX >= 0 && cellX < this.width && cellY >= 0 && cellY < this.height) {
-            const cellIndex = cellY * this.width + cellX;                    // 計算網格單元的線性索引
-            const count = Atomics.add(this.cells.count, cellIndex, 1);      // 原子操作：增加單元中的粒子計數
-            // 將粒子索引存儲到網格單元中
-            Atomics.store(this.cells.particles, cellIndex * MAX_PARTICLES_PER_CELL + count, index);
-            return true;    // 粒子成功添加到網格中
-        }
-        return false;       // 粒子超出網格範圍
-    }
-
+    // >>>> 粒子查找方法 <<<<
     getNearbyParticles(x, y, radius) {
+        // --初始化搜索參數--
         const radiusCells = Math.ceil(radius / this.cellSize);    // 計算搜索半徑覆蓋的網格單元數
         const centerCellX = Math.floor(x / this.cellSize);        // 計算中心點所在的網格X索引
         const centerCellY = Math.floor(y / this.cellSize);        // 計算中心點所在的網格Y索引
         
-        const nearbyParticles = [];                               // 存儲找到的附近粒子
-        const radiusSquared = radius * radius;                    // 預計算半徑的平方,用於距離比較
+        this.offsetsCache = 0;                                    // 重置偏移量緩存計數器
 
-        // 在搜索範圍內遍歷網格單元
-        for (let dy = -radiusCells; dy <= radiusCells; dy++) {
-            for (let dx = -radiusCells; dx <= radiusCells; dx++) {
-                const cellX = centerCellX + dx;                   // 當前檢查的網格X索引
-                const cellY = centerCellY + dy;                   // 當前檢查的網格Y索引
+        // --處理穿透邊界的情況--
+        if (isThrough) {
+            radiusCells += this.isNotGridPerfectlyFit;
+            const radiusCellsPlus1point5Squared = (radiusCells + 1.5) * (radiusCells + 1.5);
 
-                // 檢查網格單元是否在有效範圍內
-                if (cellX >= 0 && cellX < this.width && cellY >= 0 && cellY < this.height) {
-                    const cellIndex = cellY * this.width + cellX;     // 計算網格單元的線性索引
-                    const particleCount = Atomics.load(this.cells.count, cellIndex);   // 獲取單元中的粒子數量
+            for (let dy = -radiusCells; dy <= radiusCells; dy++) {
+                const dySquared = dy * dy;
+                const actualY = dy + centerCellY;
+                const wrappedGridY = ((actualY % this.height) + this.height) % this.height;
+                const baseIndex = wrappedGridY * this.width;
 
-                    // 遍歷單元中的所有粒子
-                    for (let i = 0; i < particleCount; i++) {
-                        const particleIndex = Atomics.load(
-                            this.cells.particles,                     // 從共享內存中讀取粒子索引
-                            cellIndex * MAX_PARTICLES_PER_CELL + i
-                        );
-                        
-                        // 獲取粒子位置並計算距離
-                        const px = this.particleData.x[particleIndex];    // 粒子X坐標
-                        const py = this.particleData.y[particleIndex];    // 粒子Y坐標
-                        const dx = px - x;                               // X方向距離
-                        const dy = py - y;                               // Y方向距離
-                        
-                        // 檢查粒子是否在搜索半徑內
-                        if (dx * dx + dy * dy <= radiusSquared) {
-                            nearbyParticles.push(particleIndex);         // 添加到附近粒子列表
+                for (let dx = -radiusCells; dx <= radiusCells; dx++) {
+                    if (dx * dx + dySquared > radiusCellsPlus1point5Squared) continue;
+
+                    const actualX = dx + centerCellX;
+                    const wrappedGridX = ((actualX % this.width) + this.width) % this.width;
+                    
+                    const cellIndex = baseIndex + wrappedGridX;
+                    const particleCount = Atomics.load(this.cells.count, cellIndex);
+
+                    if (particleCount > 0) {
+                        const offsetX = (actualX < 0 || actualX >= this.width) ? 
+                            (actualX < 0 ? -1 : 1) * this.canvasWidth : 0;
+                        const offsetY = (actualY < 0 || actualY >= this.height) ? 
+                            (actualY < 0 ? -1 : 1) * this.canvasHeight : 0;
+
+                        for (let i = 0; i < particleCount; i++) {
+                            const particleIndex = Atomics.load(
+                                this.cells.particles,
+                                cellIndex * this.MAX_PARTICLES_PER_CELL + i
+                            );
+                            this.nearbyCache[this.offsetsCache] = particleIndex;
+                            this.offsetsX[this.offsetsCache] = offsetX;
+                            this.offsetsY[this.offsetsCache] = offsetY;
+                            this.offsetsCache++;
+                        }
+                    }
+                }
+            }
+        } else {
+            // --處理不穿透邊界的情況--
+            const radiusSquared = radiusCells * radiusCells;
+            const startX = Math.max(0, centerCellX - radiusCells);
+            const endX = Math.min(this.width - 1, centerCellX + radiusCells);
+            const startY = Math.max(0, centerCellY - radiusCells);
+            const endY = Math.min(this.height - 1, centerCellY + radiusCells);
+
+            for (let y = startY; y <= endY; y++) {
+                const dy = y - centerCellY;
+                const dySquared = dy * dy;
+                const baseIndex = y * this.width;
+
+                for (let x = startX; x <= endX; x++) {
+                    const dx = x - centerCellX;
+                    if (dx * dx + dySquared > radiusSquared) continue;
+
+
+                    const cellIndex = baseIndex + x;
+                    const particleCount = Atomics.load(this.cells.count, cellIndex);
+
+                    if (particleCount > 0) {
+                        for (let i = 0; i < particleCount; i++) {
+                            const particleIndex = Atomics.load(
+                                this.cells.particles,
+                                cellIndex * this.MAX_PARTICLES_PER_CELL + i
+                            );
+                            this.nearbyCache[this.offsetsCache] = particleIndex;
+                            this.offsetsCache++;
                         }
                     }
                 }
             }
         }
 
-        return nearbyParticles;    // 返回找到的所有附近粒子
+        // --返回搜索結果--
+        return {
+            particles: this.nearbyCache,       // 附近粒子的索引數組
+            offsetsX: this.offsetsX,           // X方向的偏移量數組
+            offsetsY: this.offsetsY,           // Y方向的偏移量數組
+            offsetCount: this.offsetsCache     // 找到的粒子數量
+        };
     }
 }
 
@@ -814,57 +927,57 @@ function rule_direct(types) {
 async function rule_multithread(types) {
     performanceData.gAffectCalcCountsTimes = 0;      // 重置力計算次數統計
     performanceData.particleSkippedCountsTimes = 0;   // 重置跳過粒子數統計
+    
     // 檢查是否有可用的worker
     const availableWorkers = workerPool.filter(w => w.isIdle);
     if (availableWorkers.length === 0) {
         return; // 如果沒有閒置worker,跳過這次計算
     }
-    let gAffectCalcStartTime = performance.now(); // 開始時間
-    // --初始化性能計數器--
-    // 計算每個worker應處理的粒子數
-    const totalParticles = particles.length; // 粒子數量
-    const particlesPerWorker = Math.ceil(totalParticles / availableWorkers.length); // 每個worker應處理的粒子數
-    
-    // --遍歷工作線程--
-    const promises = availableWorkers.map((worker, index) => {
-        const start = index * particlesPerWorker; // 開始索引
-        const end = Math.min(start + particlesPerWorker, totalParticles); // 結束索引
-        
-        // 如果這個worker沒有粒子要處理,跳過
-        if (start >= end) {
-            return Promise.resolve(); // 跳過
-        }
-        
-        worker.isIdle = false; // 標記worker為忙碌
-        
-        // 發送計算任務
-        worker.postMessage({
-            type: 'calculate',
-            startIndex: start,
-            endIndex: end,
-            forceMatrix,
-            distanceMatrix,
-            isThrough,
-            currentDt,
-            frictionFactor
-        });
-        
-        return new Promise(resolve => {
-            worker.onmessage = function(e) {
-                if (e.data.type === 'calculateComplete') {
-                    performanceData.gAffectCalcCountsTimes += e.data.calcCount; // 力計算次數
-                    performanceData.particleSkippedCountsTimes += e.data.skippedCount; // 跳過粒子數
-                    worker.isIdle = true; // 標記worker為閒置
-                    resolve(e.data); // 完成
-                }
-            };
-        });
-    });
 
-    // 等待所有計算完成
-    await Promise.all(promises); // 等待所有計算完成
+    let gAffectCalcStartTime = performance.now(); // 開始時間
+
+    // --遍歷所有粒子類型--
+    for (let type = 0; type < types; type++) {
+        const totalParticles = particleGroups[type].length;
+        const particlesPerWorker = Math.ceil(totalParticles / availableWorkers.length);
+        
+        // --遍歷工作線程--
+        const promises = availableWorkers.map((worker, index) => {
+            const start = index * particlesPerWorker;
+            const end = Math.min(start + particlesPerWorker, totalParticles);
+            
+            if (start >= end) return Promise.resolve();
+            
+            worker.isIdle = false;
+            
+            worker.postMessage({
+                type: 'calculate',
+                startIndex: start,
+                endIndex: end,
+                forceMatrix,
+                distanceMatrix,
+                isThrough,
+                currentDt,
+                frictionFactor,
+                particleType: type    // 添加粒子類型信息
+            });
+            
+            return new Promise(resolve => {
+                worker.onmessage = function(e) {
+                    if (e.data.type === 'calculateComplete') {
+                        performanceData.gAffectCalcCountsTimes += e.data.calcCount;
+                        performanceData.particleSkippedCountsTimes += e.data.skippedCount;
+                        worker.isIdle = true;
+                        resolve(e.data);
+                    }
+                };
+            });
+        });
+
+        // 等待當前類型的所有計算完成
+        await Promise.all(promises);
+    }
     
-    // 記錄計算時間
     performanceData.gAffectCalcTime = performance.now() - gAffectCalcStartTime;
 }
 
@@ -1480,14 +1593,20 @@ function addAllParticleToGrid(Types, cellSize, canvasWidth, canvasHeight) {
     for (let i = 0; i < Types; i++) {
         if (isUsingMultithread) {
             Grids[i] = new MultithreadGrid(cellSize, canvasWidth, canvasHeight, particleGroups[i].length); // 創建網格
+            // --遍歷粒子組--
+            particleGroups[i].forEach((p, index) => {
+                Grids[i].add(p, index); // 使用原始索引
+                performanceData.gridResetAndAddCountsTimes++; // 網格重置和添加次數
+            });
+        // --單線程--
         } else {
             Grids[i] = new Grid(cellSize, canvasWidth, canvasHeight, particleGroups[i].length); // 創建網格
+            // --遍歷粒子組--
+            particleGroups[i].forEach(p => {
+                Grids[i].add(p); // 添加粒子到網格
+                performanceData.gridResetAndAddCountsTimes++; // 網格重置和添加次數
+            });
         }
-        // --遍歷粒子組--
-        particleGroups[i].forEach(p => {
-            Grids[i].add(p); // 添加粒子到網格
-            performanceData.gridResetAndAddCountsTimes++; // 網格重置和添加次數
-        });
     }
     return Grids; // 返回網格數組
 }
@@ -1504,7 +1623,7 @@ function applyMouseForce(particleGroup) {
         // >>>應用力的計算和更新<<<
         // --距離大於0--
         if (distSquared > 0) {
-            const force = mouseForce / Math.sqrt(distSquared); // 力
+            const force = mouseForce / Math.max(1, Math.sqrt(distSquared)); // 力
             p.vx += (force * dx) / frictionFactor; // 粒子X速度
             p.vy += (force * dy) / frictionFactor; // 粒子Y速度
         }
@@ -1715,7 +1834,7 @@ const performanceMonitor = {
         // 使用網格
         else if (isUsingGrid) {
             const avgTimeDiff = avgTime - this.lastAvgTime;
-            this.changeRange = Math.abs(avgTimeDiff) < 2.5 ? Math.random()*2.5-1.25 : Math.sign(avgTimeDiff) == -1 ? Math.sign(this.changeRange)*Math.random()*5 : -Math.sign(this.changeRange)*Math.random()*5;
+            this.changeRange = Math.abs(avgTimeDiff) < 2.5 ? Math.round(Math.random()*2.5-1.25) : Math.sign(avgTimeDiff) == -1 ? Math.sign(this.changeRange)*Math.round(Math.random()*5) : -Math.sign(this.changeRange)*Math.round(Math.random()*5);
             cellSize = Math.max(40,Math.min(100, cellSize + this.changeRange));
             console.log('cellSize:', cellSize, "avgTime:", avgTime, "avgTimeDiff:", avgTimeDiff, "changeRange:", this.changeRange);
             this.lastAvgTime = avgTime;

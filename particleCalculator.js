@@ -7,6 +7,11 @@
 // >>> 物理計算常量 <<<
 const BETA = 0.3;                      // 阻尼係數,用於控制粒子間的相互作用強度
 
+// >>> 共享內存變數 <<<
+let particleData;                      // 粒子數據
+let grid;                              // 網格數據
+let particleTypes;                     // 粒子類型數
+
 // =============== 工作線程計算函數 ===============
 // >>> 力的計算 <<<
 // --計算粒子間作用力--
@@ -24,9 +29,9 @@ function calculateForce(r, a) {
 self.onmessage = function(e) {
     // --初始化共享內存--
     if (e.data.type === 'initSharedMemory') {
-        self.particleData = e.data.particleData;    // 存儲粒子數據的共享內存
-        self.grid = e.data.grid;                    // 存儲網格數據的共享內存
-        self.particleTypes = e.data.particleTypes;  // 粒子類型總數
+        particleData = e.data.particleData;    // 存儲粒子數據的共享內存
+        grid = e.data.grid;                    // 存儲網格數據的共享內存
+        particleTypes = e.data.particleTypes;  // 粒子類型總數
     } 
     // --計算粒子--
     else if (e.data.type === 'calculate') {
@@ -38,7 +43,8 @@ self.onmessage = function(e) {
             distanceMatrix,           // 距離矩陣
             isThrough,                // 是否允許穿透邊界
             currentDt,                // 當前時間步長
-            frictionFactor            // 摩擦係數
+            frictionFactor,           // 摩擦係數
+            particleType              // 當前粒子類型
         } = e.data;
 
         // --性能統計計數器--
@@ -46,37 +52,36 @@ self.onmessage = function(e) {
         let skippedCount = 0;         // 跳過的粒子數
 
         // --計算指定範圍內的粒子--
-        // --遍歷粒子組--
         for (let i = startIndex; i < endIndex; i++) {
             // 應用摩擦力到當前速度
-            let vx = Atomics.load(self.particleData.vx, i) * frictionFactor;    // 更新X方向速度
-            let vy = Atomics.load(self.particleData.vy, i) * frictionFactor;    // 更新Y方向速度
+            let vx = particleData.vx[i] * frictionFactor;    // 更新X方向速度
+            let vy = particleData.vy[i] * frictionFactor;    // 更新Y方向速度
             
             // --初始化合力--
             let fx = 0, fy = 0;                     // 初始化X和Y方向的合力
 
             // --從共享內存讀取粒子數據--
-            const type = Atomics.load(self.particleData.type, i);    // 獲取粒子類型
-            const x = Atomics.load(self.particleData.x, i);          // 獲取粒子X坐標
-            const y = Atomics.load(self.particleData.y, i);          // 獲取粒子Y坐標
+            const x = particleData.x[i];          // 獲取粒子X坐標
+            const y = particleData.y[i];          // 獲取粒子Y坐標
 
             // --遍歷所有粒子類型計算相互作用--
-            for (let t = 0; t < self.particleTypes; t++) {
-                const r = distanceMatrix[type][t];        // 獲取作用距離
+            for (let t = 0; t < particleTypes; t++) {
+                const r = distanceMatrix[particleType][t];        // 獲取作用距離
                 const r2 = r * r;                         // 預計算距離的平方
-                const g = forceMatrix[type][t];          // 獲取力係數
+                const g = forceMatrix[particleType][t];          // 獲取力係數
 
                 // --獲取附近的粒子--
-                const nearby = self.grid[t].getNearbyParticles(x, y, r);    // 使用網格優化獲取附近粒子
+                const nearby = grid[t].getNearbyParticles(x, y, r);    // 使用網格優化獲取附近粒子
 
                 // --計算與每個附近粒子的相互作用--
-                for (const j of nearby) {
-                    if (i === j) continue;               // 跳過自身
+                for (let j = 0; j < nearby.offsetCount; j++) {
+                    const particleIndex = nearby.particles[j];
+                    if (i === particleIndex) continue;               // 跳過自身
                     calcCount++;                         // 增加計算次數
 
                     // --計算粒子間的距離--
-                    const dx = Atomics.load(self.particleData.x, j) - x;    // X方向距離
-                    const dy = Atomics.load(self.particleData.y, j) - y;    // Y方向距離
+                    const dx = particleData.x[particleIndex] + nearby.offsetsX[j] - x;    // X方向距離
+                    const dy = particleData.y[particleIndex] + nearby.offsetsY[j] - y;    // Y方向距離
                     const distSquared = dx * dx + dy * dy;                  // 距離平方
 
                     // --檢查是否超出作用範圍--
@@ -93,9 +98,9 @@ self.onmessage = function(e) {
                 }
             }
 
-            // --更新粒子速度到共享內存--
-            Atomics.store(self.particleData.vx, i, vx + fx * currentDt);    // 存儲新的X速度
-            Atomics.store(self.particleData.vy, i, vy + fy * currentDt);    // 存儲新的Y速度
+            // --更新粒子速度--
+            particleData.vx[i] = vx + fx * currentDt;    // 存儲新的X速度
+            particleData.vy[i] = vy + fy * currentDt;    // 存儲新的Y速度
         }
 
         // --返回計算結果和性能統計--
@@ -109,8 +114,8 @@ self.onmessage = function(e) {
 
 // >>> 共享內存訪問 <<<
 // --設置共享內存數據--
-self.setSharedMemory = function(data) {
-    self.particleData = data.particleData;    // 設置粒子數據的共享內存
-    self.grid = data.grid;                    // 設置網格數據的共享內存
-    self.particleTypes = data.particleTypes;  // 設置粒子類型數
-}; 
+function setSharedMemory(data) {
+    particleData = data.particleData;    // 設置粒子數據的共享內存
+    grid = data.grid;                    // 設置網格數據的共享內存
+    particleTypes = data.particleTypes;  // 設置粒子類型數
+} 
