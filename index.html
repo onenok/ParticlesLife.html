@@ -1,5 +1,5 @@
 <!--
- * Copyright (c) 2025 OneNok_HK
+ * Copyright (c) 2024 OneNok_HK
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
 -->
 <!DOCTYPE html>
@@ -400,6 +400,52 @@
             position: relative;
             display: inline-block;
         }
+
+        .styled-select {
+            background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+            border: none;
+            padding: 2px 15px;
+            color: #ffffff;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            width: 200px;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 20px;
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            margin-bottom: 3px;
+        }
+
+        .styled-select:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.5);
+        }
+
+        .styled-select option {
+            background: #2a2a2a;
+            color: #ffffff;
+            padding: 8px;
+        }
+
+        .styled-select option:disabled {
+            color: #666666;
+            font-style: italic;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2e2e2e;
+            font-weight: 500;
+        }
     </style>
 </head>
 
@@ -487,16 +533,19 @@
         <div class="toggle-container">
             <label for="isUsingGrid" class="toggle-label">𝄜 使用網格分割(g)</label>
             <div class="toggle-switch">
-                <input type="checkbox" id="isUsingGrid" checked>
+                <input type="checkbox" id="isUsingGrid">
                 <span class="slider"></span>
             </div>
         </div>
-        <div class="toggle-container">
-            <label for="isUsingMultithread" class="toggle-label">👥👥 使用多線程(m)</label>
-            <div class="toggle-switch">
-                <input type="checkbox" id="isUsingMultithread">
-                <span class="slider"></span>
-            </div>
+        <div class="control-section">
+            <label for="threadMode" class="control-label">🔄 運算模式 (m)</label>
+            <select id="threadMode" class="styled-select">
+                <option value="singlethread">單線程模式</option>
+                <option value="multithread">多線程模式</option>
+                <option value="multithread_gpu" disabled>GPU 加速模式 (開發中)</option>
+                <option value="multithread_wasm" disabled>WebAssembly 模式 (開發中)</option>
+            </select>
+            <p class="description">選擇不同的運算模式以優化性能</p>
         </div>
 
         <!-- 在控制面板中添加性能數據顯示 -->
@@ -556,7 +605,7 @@
                 <br>最大: <span id="Particle-Affect-Calc-time-max"></span> ms
             </p>
         </div>
-
+        
         <!-- 在控制面板中添加新的控制元素 -->
         <div class="grid-controls">
             <h3>⌗ 網格設置</h3>
@@ -620,12 +669,12 @@
 
     <script>
         // 創建 Web Worker
-        const worker = new Worker('particleWorker_multithread.js');
+        let worker = new Worker('particleWorker_Singlethread.js');
         // 用戶可控制數據的初始化
         const gameState = {
             // 粒子系統基本設置
-            isUsingGrid: true,
-            isUsingMultithread: false,
+            isUsingGrid: false,
+            threadMode: 'singlethread',
             particleTypes: 3,
             particleCounts: [250, 250, 250],
             particleColors: [
@@ -913,7 +962,8 @@
                     particleColors: gameState.particleColors,
                     particleTypes: gameState.particleTypes,
                     performanceData: performanceData,
-                    cellSize: gameState.gridData.cellSize
+                    cellSize: gameState.gridData.cellSize,
+                    ballRadius: gameState.ballRadius  // 添加 ballRadius 參數
                 });
             }
 
@@ -1109,7 +1159,7 @@
             worker.onmessage = function (e) {
                 if (e.data.type === 'update') {
                     particles = e.data.particles;
-                    particleGroups = e.data.particleGroups;
+                    gameState.particleGroups = e.data.particleGroups;
                     gameState.gridData.nearbyCells = e.data.nearbyCells;
                     //console.log(`e.data.nearbyCellsSkipped: ${e.data.nearbyCellsSkipped}`);
                     gameState.gridData.nearbyCellsSkipped = e.data.nearbyCellsSkipped;
@@ -1351,30 +1401,74 @@
             const isUsingGridCheckbox = document.getElementById("isUsingGrid");
             isUsingGridCheckbox.addEventListener('change', () => {
                 gameState.isUsingGrid = isUsingGridCheckbox.checked;
-                if (gameState.isUsingGrid) {
-                    gameState.isUsingMultithread = false;
-                    isUsingMultithreadCheckbox.checked = false;
-                    isUsingMultithreadCheckbox.dispatchEvent(new Event('change'));
-                }
                 setTimeout(() => {
                     worker.postMessage({ type: 'setIsUsingGrid', isUsingGrid: gameState.isUsingGrid });
                 }, 100);
             });
 
-            // 使用多線程功能切換
-            const isUsingMultithreadCheckbox = document.getElementById("isUsingMultithread");
-            isUsingMultithreadCheckbox.addEventListener('change', () => {
-                gameState.isUsingMultithread = isUsingMultithreadCheckbox.checked;
-                if (gameState.isUsingMultithread) {
-                    gameState.isUsingGrid = false;
-                    isUsingGridCheckbox.checked = false;
-                    isUsingGridCheckbox.dispatchEvent(new Event('change'));
+            // 運算模式切換
+            const threadModeSelect = document.getElementById("threadMode");
+
+            // 初始化選擇值
+            threadModeSelect.value = gameState.threadMode;
+
+            // 添加事件監聽器
+            threadModeSelect.addEventListener('change', async () => {
+                const newMode = threadModeSelect.value;
+                const currentMode = gameState.threadMode;
+                
+                if (newMode === currentMode) return;
+
+                gameState.threadMode = newMode;
+
+                // 終止當前 worker
+                if (worker) {
+                    worker.terminate();
                 }
-                setTimeout(() => {
-                    worker.postMessage({ type: 'setMultithread', enabled: gameState.isUsingMultithread });
-                }, 100);
+
+                // 根據選擇的模式初始化相應的 worker
+                switch (newMode) {
+                    case "multithread":
+                        worker = new Worker('particleWorker_Multithread.js');
+                        break;
+                        
+                    case "singlethread":
+                        worker = new Worker('particleWorker_Singlethread.js');
+                        break;
+                        
+                    case "multithread_gpu":
+                        // 預留給 GPU 加速模式
+                        console.log("GPU acceleration mode is under development");
+                        return;
+                        
+                    case "multithread_wasm":
+                        // 預留給 WebAssembly 模式
+                        console.log("WebAssembly mode is under development");
+                        return;
+                        
+                    default:
+                        console.error("Unknown thread mode:", newMode);
+                        return;
+                }
+
+                // 初始化新的 worker
+                worker.postMessage({ 
+                    type: 'changeThreadInit',
+                    particleGroups: gameState.particleGroups,
+                    canvasWidth: canvas2d.width,
+                    canvasHeight: canvas2d.height,
+                    particleTypes: gameState.particleTypes,
+                    particleColors: gameState.particleColors,
+                    particleCounts: gameState.particleCounts,
+                    cellSize: gameState.gridData.cellSize,
+                    performanceData: performanceData,
+                    isUsingGrid: gameState.isUsingGrid,
+                });
+
+                // 更新所有相關狀態
+                updateEveryThing();
             });
-            
+             
             // 添加按鈕事件監聽器
             document.getElementById('randomize-button').addEventListener('click', randomizeValues);
             document.getElementById('restart-button').addEventListener('click', initGame);
@@ -1404,8 +1498,16 @@
                     isUsingGridCheckbox.dispatchEvent(new Event('change'));
                 }
                 if (event.key === "m") {
-                    isUsingMultithreadCheckbox.checked = !isUsingMultithreadCheckbox.checked;
-                    isUsingMultithreadCheckbox.dispatchEvent(new Event('change'));
+                    const currentIndex = threadModeSelect.selectedIndex;
+                    let nextIndex = (currentIndex + 1) % threadModeSelect.options.length;
+                    let nextOption = threadModeSelect.options[nextIndex];
+                    
+                    while (nextOption.disabled) {
+                        nextIndex = (nextIndex + 1) % threadModeSelect.options.length;
+                        nextOption = threadModeSelect.options[nextIndex];
+                    }
+                    threadModeSelect.selectedIndex = nextIndex;
+                    threadModeSelect.dispatchEvent(new Event('change'));
                 }
             });
 
@@ -1465,6 +1567,16 @@
             function updateTHalf(){
                 worker.postMessage({ type: 'updateTHalf', tHalf: gameState.tHalf });
             }
+            function updateIsUsingGrid(){
+                worker.postMessage({ type: 'setIsUsingGrid', isUsingGrid: gameState.isUsingGrid });
+            }
+
+            /* not used
+            function updateIsUsingMultithread(){
+                worker.postMessage({ type: 'setIsUsingMultithread', isUsingMultithread: gameState.isUsingMultithread });
+            }
+            */
+
             function updateEveryThing(){
                 updateHTML();
                 updateRules();
@@ -1477,6 +1589,7 @@
                 updateRadiusShow();
                 updateTHalf();
                 updateDt();
+                updateIsUsingGrid();
             }
 
             // 為滑鼠力量滑塊添加事件監聽器
