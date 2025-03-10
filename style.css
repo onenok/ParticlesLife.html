@@ -1,0 +1,441 @@
+/*
+ * Copyright (c) 2024 OneNok_HK
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
+body {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    background-color: black;
+}
+
+#controls {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    position: fixed;
+    top: 0;
+    right: -300px;
+    width: 300px;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    transition: right 0.3s ease-in-out;
+    z-index: 1000;
+}
+
+#controls > div:not(#controls > div > div) {
+    margin-top: 20px;
+}
+
+#controls.visible {
+    right: 0;
+}
+
+#toggle-controls {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1001;
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.7);
+    transition: right 0.3s ease-in-out, opacity 0.3s ease;
+    opacity: 0;
+}
+
+#toggle-controls:hover {
+    opacity: 1;
+}
+
+/*canvas {
+    border: 1px solid;
+    border-color: rgb(63, 63, 63);
+}*/
+
+/* 按鈕組樣式 */
+.button-group {
+    margin: 20px 0;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.control-section {
+    margin-bottom: 20px;
+}
+
+h3 {
+    color: #272727;
+    margin-bottom: 10px;
+    font-size: 1.2em;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.button-container {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.styled-button {
+    background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+    border: none;
+    padding: 10px 20px;
+    color: #ffffff;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.styled-button:hover {
+    background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.styled-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 性能數據顯示區域樣式 */
+#performance-data {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 15px;
+    border-radius: 10px;
+    margin: 20px 0;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+}
+
+#performance-data h3 {
+    color: #fff;
+    margin-bottom: 15px;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+#performance-data p {
+    color: #ffffff;
+    margin: 10px 0;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+}
+
+#performance-data span {
+    color: #5dff62;
+    font-weight: bold;
+}
+
+/* 控制元素樣式 */
+input[type="range"] {
+    width: 200px;
+    height: 5px;
+    border-radius: 5px;
+    background: #4d4d4d;
+    outline: none;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+input[type="range"]:hover {
+    opacity: 1;
+    background: #6e6e6e;
+}
+
+input[type="number"] {
+    width: 70px;
+    padding: 2px 5px;
+    border: 1px solid #4d4d4d;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    color: #ffffff;
+    font-size: 13px;
+    height: 20px;
+    box-sizing: border-box;
+    margin-top: 5px;
+}
+
+input[type="number"]:focus,
+select:focus {
+    border-color: #6e6e6e;
+    outline: none;
+    box-shadow: 0 0 5px rgba(110, 110, 110, 0.5);
+}
+
+select {
+    padding: 2px 5px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #4d4d4d;
+    border-radius: 4px;
+    color: #ffffff;
+    font-size: 13px;
+    height: 20px;
+}
+
+/* 標籤樣式 */
+label {
+    color: #d0d0d0;
+    margin-right: 10px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 複選框樣式 */
+input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+}
+
+/* 一般標籤和文字的默認顏色 */
+label {
+    color: #2e2e2e;
+}
+
+/* 一般段落文字 */
+p {
+    color: #2e2e2e;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 有特定背景的元素保持白色文字 */
+#performance-data p {
+    color: #ffffff;
+}
+
+/* 保持按鈕文字為白色，因為按鈕有深色背景 */
+.styled-button {
+    color: #d0d0d0;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 性能數據區域保持白色文字 */
+#performance-data h3,
+#performance-data p {
+    color: #ffffff;
+}
+
+/* 性能數據中的數值保持綠色 */
+#performance-data span {
+    color: #5dff62;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 切換開關容器 */
+.toggle-container {
+    margin: 10px 0;
+    display: flex;
+}
+
+/* 標籤樣式 */
+.toggle-label {
+    width: fit-content;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* 切換開關外觀 */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+/* 隱藏原始複選框，但保持在滑塊位置 */
+.toggle-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    z-index: 1; /* 確保複選框在最上層 */
+    margin: 0; /* 移除默認邊距 */
+}
+
+/* 滑塊樣式 */
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #4d4d4d;
+    transition: .3s;
+    border-radius: 24px;
+    pointer-events: none; /* 確保滑塊不會干擾點擊事件 */
+}
+
+/* 滑塊的圓形按鈕 */
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: #d0d0d0;
+    transition: .3s;
+    border-radius: 50%;
+}
+
+/* 選中狀態的樣式 */
+input:checked + .slider {
+    background-color: #4CAF50;
+}
+
+/* 滑塊懸停效果 */
+.slider:hover {
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+}
+
+/* 選中狀態下圓形按鈕的位置 */
+input:checked + .slider:before {
+    transform: translateX(26px);
+    background-color: #ffffff;
+}
+
+/* 粒子規則容器（新增樣式） */
+.rules-container {
+    background: rgba(0, 0, 0, 0.2); 
+    padding: 15px;
+    border-radius: 10px;
+    margin: 20px 0;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+}
+.rules-container > div:not(.no-background) {
+    background: rgba(0, 0, 0, 0.1); 
+    border-radius: 10px;
+    margin: 20px 0;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+}
+
+.matrix-container {
+    overflow-x: auto;
+    display: flex;
+}
+
+.matrix-container input[type="number"] {
+    width: 100%;
+    min-width: 10px;
+    padding: 2px;
+    border: none;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    font-size: 14px;
+}
+
+
+.particle-type {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0 5px 5px 5px;
+    border-radius: 5px;
+}
+.description {
+    color: #222222;
+    font-size: 12px;
+    margin: 0;
+}
+
+.matrix-table {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+}
+
+.color-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.color-inputs input[type="color"],
+.color-inputs input[type="range"] {
+    flex: 1;
+}
+.no-hit-box {
+    pointer-events: none;
+    position: absolute;
+    background: none;
+    border: none;
+    margin: 4%;
+    padding: 2px 5px;
+    width: 70px;
+    height: 20px;
+    box-sizing: border-box;
+    font-size: 13px;
+    color: #2e2e2e;
+    left: 0;
+    top: 0;
+    color: white;
+}
+
+.input-container {
+    position: relative;
+    display: inline-block;
+}
+
+.styled-select {
+    background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
+    border: none;
+    padding: 2px 15px;
+    color: #ffffff;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    width: 200px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 20px;
+    background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    margin-bottom: 3px;
+}
+
+.styled-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.5);
+}
+
+.styled-select option {
+    background: #2a2a2a;
+    color: #ffffff;
+    padding: 8px;
+}
+
+.styled-select option:disabled {
+    color: #666666;
+    font-style: italic;
+}
+
+.control-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #2e2e2e;
+    font-weight: 500;
+}
