@@ -3,85 +3,7 @@
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
-console.log("particleWorker_Multithread.js loaded successfully");
-
-// =============== 變量聲明區域 ===============
-// >>> 粒子系統核心變量 <<<
-// --粒子數據相關--
-let variables = {
-    particles: [],          // 儲存所有粒子對象的數組
-    particleGroups: [],     // 粒子分組數組
-    particleTypes: 0,       // 粒子類型總數
-    particleCounts: [],     // 每種類型的粒子數量
-    particleColors: [],     // 每種類型的粒子顏色
-    nextParticleId: 0,      // 下一個要分配的粒子ID
-    ballRadius: 0,          // 粒子半徑
-
-    // --網格系統相關--
-    isUsingGrid: true,      // 是否使用網格系統
-    particleGrids: [],      // 粒子網格數組
-    grid: null,            // 主網格對象
-    showGrid: false,        // 是否顯示網格
-    selectedCell: null,     // 當前選中的網格單元
-    gridData: null,         // 網格數據
-    setectGridDistance: 0,  // 網格選擇距離
-    cellSize: 0,           // 網格單元大小
-
-    // >>> 物理計算相關變量 <<<
-    // --力和距離矩陣--
-    forceMatrix: [],        // 粒子間作用力矩陣
-    distanceMatrix: [],     // 粒子間距離矩陣
-    isThrough: false,       // 是否允許穿透
-    offsetsList: [{dx: 0, dy: 0}],  // 偏移量列表
-
-    // --性能和更新控制--
-    updateIntervalCountsTimes: 0, // 更新次數計數器
-    lastResizeTime: 0, // 上次調整畫布時間
-    isInited: false, // 是否初始化
-    isRunnable: true,      // 是否可運行
-    canUpdate: false,       // 是否可以更新
-    isUpdating: false,      // 是否正在更新
-    isMovingCanvas: false, // 是否正在移動畫布
-    updateInterval: 16.66,  // 更新間隔(ms)
-    frictionFactor: 0,      // 摩擦係數
-    performanceData: {},    // 性能數據對象
-
-    // >>> 視覺和交互相關變量 <<<
-    // --畫布相關--
-    canvas: { width: 0, height: 0 },  // 畫布尺寸
-
-    // --滑鼠交互--
-    mouseX: 0,             // 滑鼠X座標
-    mouseY: 0,             // 滑鼠Y座標
-    isMouseActive: false,   // 滑鼠是否活動
-    mouseForce: 0,         // 滑鼠作用力
-    selectedParticleId: null,  // 選中的粒子ID
-
-    // --視覺效果--
-    enableParticleAffcetRadiusShow: false,  // 是否顯示粒子影響半徑
-    RadiusShow: [],        // 影響半徑顯示數據
-
-    // >>> 多線程系統變量 <<<
-    // --線程控制--
-    isUsingMultithread: false,  // 是否使用多線程
-    sharedMemory: null,  // 共享內存管理器
-    workerPool: [],             // 工作線程池
-    MAX_WORKERS: navigator.hardwareConcurrency-3 || 4,  // 最大工作線程數
-    minParticlesPerWorker: 100,  // 每個工作線程的最小粒子數
-
-    // >>> 共享內存變數 <<<
-    particleData: null,              // 粒子數據
-    startIndex: 0,
-    endIndex: 0,
-    particleType: 0,
-
-    // =============== 常量定義 ===============
-    // >>> 時間和物理常量 <<<
-    DEFAULT_DT: 1/144,        // 默認時間步長
-    DEFAULT_T_HALF: 0.040,    // 默認半衰期
-    currentTHalf: DEFAULT_T_HALF,  // 當前半衰期
-    currentDt: DEFAULT_DT,      // 當前時間步長
-}
+console.log("particleWorker_Multithread.js loaded successfully")
 // =============== 原有類別定義 ===============
 // --Grid類(now is only for draw grid)--
 class Grid {
@@ -176,48 +98,6 @@ class Grid {
             nearbyCellsSkipped: this.nearbyCellsSkipped.slice(0, this.nearbyCellsSkippedCache) // 跳過的單元
         };
     }
-}
-
-// =============== 原有函數定義 ===============
-// --計算粒子間作用力--
-const BETA = 0.3;
-function calculateForce(r, a) {
-    // --粒子間距小於BETA--
-    if (r < BETA) { 
-        return r / BETA - 1; // 返回作用力
-    } 
-    // --粒子間距在BETA和1之間--
-    else if (BETA < r && r < 1) { 
-        return a * (1 - Math.abs(2 * r - 1 - BETA) / (1 - BETA)); // 返回作用力
-    }
-    return 0; // 返回作用力
-}
-
-// --計算摩擦係數--
-function calculateFrictionFactor(dt, tHalf) {
-    return Math.pow(0.5, dt/tHalf); // 返回摩擦係數
-}
-
-// =============== 主循環 ===============
-
-// 每秒初始化更新次數
-setInterval(() => {
-    self.postMessage({type: 'updateUpdateIntervalCountsTimes', updateIntervalCountsTimes: updateIntervalCountsTimes});
-    updateIntervalCountsTimes = 0;
-}, 1000);
-
-let updateIntervalId;
-function updateIntervalFunction() {
-    updateIntervalId = setInterval(() => {
-        if (isInited && canUpdate && !isUpdating && isRunnable && !isMovingCanvas) {
-            const startTime = performance.now(); // 開始時間
-            updateIntervalCountsTimes++; // 更新次數
-            isUpdating = true;
-            update();
-            isUpdating = false;
-            performanceData.updateIntervalTime = performance.now() - startTime; // 更新時間
-        }
-    }, updateInterval);
 }
 
 // =============== 消息處理 ===============
@@ -648,6 +528,46 @@ async function update() {
 
 // =============== 輔助函數 ===============
 
+// >>>> 主循環 <<<<
+setInterval(() => {
+    self.postMessage({type: 'updateUpdateIntervalCountsTimes', updateIntervalCountsTimes: updateIntervalCountsTimes});
+    updateIntervalCountsTimes = 0;
+}, 1000);
+
+let updateIntervalId;
+function updateIntervalFunction() {
+    updateIntervalId = setInterval(() => {
+        if (isInited && canUpdate && !isUpdating && isRunnable && !isMovingCanvas) {
+            const startTime = performance.now(); // 開始時間
+            updateIntervalCountsTimes++; // 更新次數
+            isUpdating = true;
+            update();
+            isUpdating = false;
+            performanceData.updateIntervalTime = performance.now() - startTime; // 更新時間
+        }
+    }, updateInterval);
+}
+// --計算粒子間作用力--
+const BETA = 0.3;
+function calculateForce(r, a) {
+    // --粒子間距小於BETA--
+    if (r < BETA) { 
+        return r / BETA - 1; // 返回作用力
+    } 
+    // --粒子間距在BETA和1之間--
+    else if (BETA < r && r < 1) { 
+        return a * (1 - Math.abs(2 * r - 1 - BETA) / (1 - BETA)); // 返回作用力
+    }
+    return 0; // 返回作用力
+}
+
+// --計算摩擦係數--
+function calculateFrictionFactor(dt, tHalf) {
+    return Math.pow(0.5, dt/tHalf); // 返回摩擦係數
+}
+
+
+
 // >>> 網格管理 <<<
 function addAllParticleToGrid(Types, cellSize, canvasWidth, canvasHeight) {
     // --初始化性能計數器--
@@ -665,7 +585,9 @@ function addAllParticleToGrid(Types, cellSize, canvasWidth, canvasHeight) {
                 cellSize,
                 canvasWidth,
                 canvasHeight,
-                particleGroups[i].length
+                particleGroups[i].length,
+                i,
+                sharedMemory
             );
             
             // 創建並初始化 ParticleData
@@ -782,12 +704,52 @@ function rY() {
 
 // >>> 生成指定類型的粒子組 <<<
 function create(count, c, type) {
-    let group = []; // 粒子組
-    // --遍歷粒子數量--
+    // 創建 ParticleData 實例來管理共享內存
+    const particleData = new ParticleData(type, sharedMemory);
+    
+    // 創建多線程網格
+    const multiGrid = new MultithreadGrid(
+        cellSize,
+        canvas.width,
+        canvas.height,
+        count,
+        type,
+        sharedMemory
+    );
+    
+    // 直接在共享內存中創建粒子
     for (let i = 0; i < count; i++) {
-        group.push(particle(rX(), rY(), c, type)); // 創建粒子
+        const x = rX();
+        const y = rY();
+        const id = nextParticleId++;
+        
+        // 存儲粒子數據到共享內存
+        storeAtomicFloat(particleData.getData().x, i, x);
+        storeAtomicFloat(particleData.getData().y, i, y);
+        storeAtomicFloat(particleData.getData().vx, i, 0);
+        storeAtomicFloat(particleData.getData().vy, i, 0);
+        
+        // 添加到網格
+        multiGrid.add({
+            id,
+            x,
+            y,
+            gridX: 0,
+            gridY: 0,
+            vx: 0,
+            vy: 0,
+            color: c,
+            type
+        }, i);
     }
-    return group; // 返回粒子組
+    
+    return {
+        grid: multiGrid,
+        particleData: particleData,
+        count: count,
+        color: c,
+        type: type
+    };
 }
 
 // >>> 性能監控 <<<
@@ -982,68 +944,86 @@ function particlesCollision(types) {
 
 // --SharedMemoryManager類處理所有共享內存的分配和管理--
 class SharedMemoryManager {
-    constructor(totalParticles, gridConfig = null) {
-        this.totalParticles = totalParticles;
+    constructor(particleTypes, particleCounts, gridConfig = null) {
+        this.particleTypes = particleTypes;
+        this.particleCounts = particleCounts;
         this.buffers = {};
         this.views = {};
         
-        // 計算所需的緩衝區大小
-        const particleDataSize = totalParticles * 4 * Int32Array.BYTES_PER_ELEMENT;
-        
-        // 如果提供了網格配置，計算網格緩衝區大小
-        let gridBufferSize = 0;
+        // 為每種粒子類型創建獨立的緩衝區
+        this.buffers.particleGroups = [];
+        for (let i = 0; i < particleTypes; i++) {
+            const count = particleCounts[i];
+            // 每個粒子需要 4 個 Int32 (x, y, vx, vy)
+            const bufferSize = count * 4 * Int32Array.BYTES_PER_ELEMENT;
+            this.buffers.particleGroups[i] = new SharedArrayBuffer(bufferSize);
+        }
+
+        // 如果提供了網格配置，為每種類型創建網格緩衝區
         if (gridConfig) {
             const { width, height, cellSize } = gridConfig;
             const totalCells = Math.ceil(width / cellSize) * Math.ceil(height / cellSize);
-            const maxParticlesPerCell = Math.ceil(Math.sqrt(totalParticles)); // 估算每個單元格的最大粒子數
-            gridBufferSize = totalCells * (1 + maxParticlesPerCell) * Int32Array.BYTES_PER_ELEMENT;
+            
+            this.buffers.grids = [];
+            for (let i = 0; i < particleTypes; i++) {
+                const count = particleCounts[i];
+                const maxParticlesPerCell = Math.ceil(Math.sqrt(count)); // 估算每個單元格的最大粒子數
+                const gridBufferSize = totalCells * (1 + maxParticlesPerCell) * Int32Array.BYTES_PER_ELEMENT;
+                this.buffers.grids[i] = new SharedArrayBuffer(gridBufferSize);
+            }
         }
 
-        // 創建緩衝區
-        this.buffers = {
-            particleData: new SharedArrayBuffer(particleDataSize),
-            cells: new SharedArrayBuffer(gridBufferSize || 1024), // 如果沒有網格配置，使用最小值
-            nearby: new SharedArrayBuffer(totalParticles * Int32Array.BYTES_PER_ELEMENT),
-            offsetsX: new SharedArrayBuffer(totalParticles * Float32Array.BYTES_PER_ELEMENT),
-            offsetsY: new SharedArrayBuffer(totalParticles * Float32Array.BYTES_PER_ELEMENT),
-            sync: new SharedArrayBuffer(4)
-        };
-
-        // 初始化視圖
-        this.views = {
-            particleData: new Int32Array(this.buffers.particleData),
-            cells: new Int32Array(this.buffers.cells),
-            nearby: new Int32Array(this.buffers.nearby),
-            offsetsX: new Float32Array(this.buffers.offsetsX),
-            offsetsY: new Float32Array(this.buffers.offsetsY),
-            sync: new Int32Array(this.buffers.sync)
-        };
+        // 創建同步計數器緩衝區
+        this.buffers.sync = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * particleTypes);
     }
 
-    getBuffer(name) {
-        return this.buffers[name];
+    // 獲取指定類型的粒子緩衝區
+    getParticleBuffer(type) {
+        return this.buffers.particleGroups[type];
     }
 
-    getView(name) {
-        return this.views[name];
+    // 獲取指定類型的網格緩衝區
+    getGridBuffer(type) {
+        return this.buffers.grids ? this.buffers.grids[type] : null;
+    }
+
+    // 獲取同步計數器
+    getSyncBuffer() {
+        return this.buffers.sync;
     }
 
     clear() {
-        Object.values(this.views).forEach(view => {
-            view.fill(0);
-        });
+        // 清除所有緩衝區
+        for (let i = 0; i < this.particleTypes; i++) {
+            const particleView = new Int32Array(this.buffers.particleGroups[i]);
+            particleView.fill(0);
+            
+            if (this.buffers.grids && this.buffers.grids[i]) {
+                const gridView = new Int32Array(this.buffers.grids[i]);
+                gridView.fill(0);
+            }
+        }
+        
+        // 清除同步計數器
+        const syncView = new Int32Array(this.buffers.sync);
+        syncView.fill(0);
     }
 }
 
+// 修改 ParticleData 類以配合新的 SharedMemoryManager
 class ParticleData {
-    constructor(ParticlesCount) {
+    constructor(type, sharedMemoryManager) {
+        const buffer = sharedMemoryManager.getParticleBuffer(type);
+        const count = sharedMemoryManager.particleCounts[type];
+        
         this.particleData = {
-            x: new Int32Array(this.sharedMemory.getBuffer('particleData'), 0, ParticlesCount),
-            y: new Int32Array(this.sharedMemory.getBuffer('particleData'), ParticlesCount * Int32Array.BYTES_PER_ELEMENT, ParticlesCount),
-            vx: new Int32Array(this.sharedMemory.getBuffer('particleData'), 2 * ParticlesCount * Int32Array.BYTES_PER_ELEMENT, ParticlesCount),
-            vy: new Int32Array(this.sharedMemory.getBuffer('particleData'), 3 * ParticlesCount * Int32Array.BYTES_PER_ELEMENT, ParticlesCount)
+            x: new Int32Array(buffer, 0, count),
+            y: new Int32Array(buffer, count * Int32Array.BYTES_PER_ELEMENT, count),
+            vx: new Int32Array(buffer, 2 * count * Int32Array.BYTES_PER_ELEMENT, count),
+            vy: new Int32Array(buffer, 3 * count * Int32Array.BYTES_PER_ELEMENT, count)
         };
-        this.syncCounter = this.sharedMemory.getView('sync');
+        
+        this.syncCounter = new Int32Array(sharedMemoryManager.getSyncBuffer())[type];
     }
 
     add(particle, index) {
@@ -1054,7 +1034,10 @@ class ParticleData {
     }
 
     clear() {
-        this.sharedMemory.clear();
+        this.particleData.x.fill(0);
+        this.particleData.y.fill(0);
+        this.particleData.vx.fill(0);
+        this.particleData.vy.fill(0);
     }
 
     getData() {
@@ -1068,47 +1051,36 @@ class ParticleData {
 
 // --MultithreadGrid類處理多線程環境下的粒子網格計算--
 class MultithreadGrid {
-    constructor(cellSize, width, height, particleCount) {
-        // 基本屬性初始化
-        this.cellSize = cellSize;
-        this.canvasWidth = width;
-        this.canvasHeight = height;
-        this.width = Math.ceil(width / cellSize);
-        this.height = Math.ceil(height / cellSize);
+    constructor(cellSize, width, height, particleCount, type, sharedMemoryManager) {
+        // -- 基本屬性初始化 --
+        this.cellSize = cellSize;                     // 網格單元大小
+        this.canvasWidth = width;                     // 畫布寬度
+        this.canvasHeight = height;                   // 畫布高度
+        this.type = type;                            // 粒子類型
+        this.width = Math.ceil(width / cellSize);     // 計算網格寬度(單元數)
+        this.height = Math.ceil(height / cellSize);   // 計算網格高度(單元數)
         
-        // 計算每個網格的最大粒子數
-        const CIRCLE_PACKING_DENSITY = 0.9069;
-        const cellArea = cellSize * cellSize;
-        const particleArea = Math.PI * ballRadius * ballRadius;
-        const theoreticalMaxParticles = Math.floor((cellArea * CIRCLE_PACKING_DENSITY) / particleArea);
-        this.MAX_PARTICLES_PER_CELL = Math.max(50, Math.ceil(theoreticalMaxParticles * 1.5));
-        
-        // 創建共享內存管理器
-        this.sharedMemory = new SharedMemoryManager(particleCount, {
-            width,
-            height,
-            cellSize
-        });
-        
-        // 初始化網格數據
+        // -- 計算每個網格的最大粒子數 --
+        const CIRCLE_PACKING_DENSITY = 0.9069;  
+        const cellArea = cellSize * cellSize;    
+        const particleArea = Math.PI * ballRadius * ballRadius;  
+        const theoreticalMaxParticles = Math.floor((cellArea * CIRCLE_PACKING_DENSITY) / particleArea);  
+        this.MAX_PARTICLES_PER_CELL = Math.max(100, Math.ceil(theoreticalMaxParticles * 1.5));
+
+        // -- 使用 SharedMemoryManager 初始化網格 --
+        const gridBuffer = sharedMemoryManager.getGridBuffer(type);
         const totalCells = this.width * this.height;
+        
         this.cells = {
-            count: new Int32Array(this.sharedMemory.getBuffer('cells'), 0, totalCells),
-            particles: new Int32Array(
-                this.sharedMemory.getBuffer('cells'),
-                totalCells * Int32Array.BYTES_PER_ELEMENT,
-                totalCells * this.MAX_PARTICLES_PER_CELL
-            )
+            count: new Int32Array(gridBuffer, 0, totalCells),
+            particles: new Int32Array(gridBuffer, totalCells * Int32Array.BYTES_PER_ELEMENT, totalCells * this.MAX_PARTICLES_PER_CELL)
         };
 
-        // 初始化緩存
-        this.nearbyCache = new Int32Array(this.sharedMemory.getBuffer('nearby'));
-        this.offsetsX = new Float32Array(this.sharedMemory.getBuffer('offsetsX'));
-        this.offsetsY = new Float32Array(this.sharedMemory.getBuffer('offsetsY'));
+        // -- 初始化附近粒子查找緩存 --
+        this.nearbyCache = new Int32Array(particleCount);
+        this.offsetsX = new Float32Array(particleCount);
+        this.offsetsY = new Float32Array(particleCount);
         this.offsetsCache = 0;
-        
-        // 同步計數器
-        this.syncCounter = this.sharedMemory.getView('sync');
     }
 
     add(particle, index) {
@@ -1663,3 +1635,78 @@ async function rule_update_multithread(types) {
 
     performanceData.positionUpdateTime = performance.now() - startTime;
 }
+
+// =============== 變量聲明區域 ===============
+// >>> 粒子系統核心變量 <<<
+// --粒子數據相關--
+let particles = [];          // 儲存所有粒子對象的數組
+let particleTypes = 0;       // 粒子類型總數
+let particleCounts = [];     // 每種類型的粒子數量
+let particleColors = [];     // 每種類型的粒子顏色
+let nextParticleId = 0;      // 下一個要分配的粒子ID
+let ballRadius = 0;          // 粒子半徑
+
+    // --網格系統相關--
+let isUsingGrid = true;      // 是否使用網格系統
+let particleGrids = [];      // 粒子網格數組
+let grid = null;            // 主網格對象
+let showGrid = false;        // 是否顯示網格
+let selectedCell = null;     // 當前選中的網格單元
+let gridData = null;         // 網格數據
+let selectGridDistance = 0;  // 網格選擇距離
+let cellSize = 0;           // 網格單元大小
+
+// >>> 物理計算相關變量 <<<
+// --力和距離矩陣--
+let forceMatrix = [];        // 粒子間作用力矩陣
+let distanceMatrix = [];     // 粒子間距離矩陣
+let isThrough = false;       // 是否允許穿透
+let offsetsList = [{dx: 0, dy: 0}];  // 偏移量列表
+
+// --性能和更新控制--
+let updateIntervalCountsTimes = 0; // 更新次數計數器
+let lastResizeTime = 0; // 上次調整畫布時間
+let isInited = false; // 是否初始化
+let isRunnable = true;      // 是否可運行
+let canUpdate = false;       // 是否可以更新
+let isUpdating = false;      // 是否正在更新
+let isMovingCanvas = false; // 是否正在移動畫布
+let updateInterval = 16.66;  // 更新間隔(ms)
+let frictionFactor = 0;      // 摩擦係數
+let performanceData = {};    // 性能數據對象
+
+// >>> 視覺和交互相關變量 <<<
+// --畫布相關--
+let canvas = { width: 0, height: 0 };  // 畫布尺寸
+
+    // --滑鼠交互--
+let mouseX = 0;             // 滑鼠X座標
+let mouseY = 0;             // 滑鼠Y座標
+let isMouseActive = false;   // 滑鼠是否活動
+let mouseForce = 0;         // 滑鼠作用力
+let selectedParticleId = null;  // 選中的粒子ID
+
+// --視覺效果--
+let enableParticleAffcetRadiusShow = false;  // 是否顯示粒子影響半徑
+let RadiusShow = [];        // 影響半徑顯示數據
+
+// >>> 多線程系統變量 <<<
+// --線程控制--
+let isUsingMultithread = false;  // 是否使用多線程
+let sharedMemory = null;  // 共享內存管理器
+let workerPool = [];             // 工作線程池
+let MAX_WORKERS = navigator.hardwareConcurrency-3 || 4;  // 最大工作線程數
+let minParticlesPerWorker = 100;  // 每個工作線程的最小粒子數
+
+// >>> 共享內存變數 <<<
+let particleData = null;              // 粒子數據
+let startIndex = 0;
+let endIndex = 0;
+let particleType = 0;
+
+// =============== 常量定義 ===============
+// >>> 時間和物理常量 <<<
+let DEFAULT_DT = 1/144;        // 默認時間步長
+let DEFAULT_T_HALF = 0.040;    // 默認半衰期
+let currentTHalf = DEFAULT_T_HALF  // 當前半衰期
+let currentDt = DEFAULT_DT      // 當前時間步長
