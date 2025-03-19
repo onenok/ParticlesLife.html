@@ -19,13 +19,12 @@ self.onmessage = function(e) {
             particleGroups = e.data.particleGroups; // 粒子組
             particleCounts = e.data.particleCounts; // 粒子數量
             performanceData = e.data.performanceData; // 性能計數器
+            ballRadius = e.data.ballRadius; // 粒子半徑
+            sharedMemory = e.data.sharedMemory; // 共享內存管理器
             
             // --初始化網格--
             // --是否使用網格--
             frictionFactor = calculateFrictionFactor(currentDt, currentTHalf); // 摩擦係數
-            
-            // 創建共享內存管理器
-            sharedMemory = new SharedMemoryManager(particleCounts);
             // --網格初始化--
             
             // --如果使用多線程,初始化多線程系統--
@@ -47,9 +46,9 @@ self.onmessage = function(e) {
             particleColors = e.data.particleColors; // 粒子顏色
             particleCounts = e.data.particleCounts; // 粒子數量
             performanceData = e.data.performanceData; // 性能計數器
+            ballRadius = e.data.ballRadius; // 粒子半徑 
+            sharedMemory = e.data.sharedMemory; // 共享內存管理器
             frictionFactor = calculateFrictionFactor(currentDt, currentTHalf); // 摩擦係數
-            // 創建共享內存管理器
-            sharedMemory = new SharedMemoryManager(particleCounts);
             // --如果使用多線程,初始化多線程系統--
             initializeMultithreadSystem().then(() => {
                 console.log('Multithreading system initialized successfully');
