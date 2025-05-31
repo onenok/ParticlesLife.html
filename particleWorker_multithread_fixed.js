@@ -308,9 +308,14 @@ setInterval(() => {
 }, 1000);
 
 let updateIntervalId;
+let isUIFWorks = false;
 function updateIntervalFunction() {
     updateIntervalId = setInterval(() => {
         if (isInited && canUpdate && !isUpdating && isRunnable && !isMovingCanvas) {
+            if (!isUIFWorks) {
+                console.log("updateIntervalFunction works")
+                isUIFWorks = true;
+            }
             const startTime = performance.now(); // 開始時間
             updateIntervalCountsTimes++; // 更新次數
             isUpdating = true;
@@ -608,13 +613,6 @@ function particlesCollision(types) {
 // >>> 多線程初始化 <<<
 async function initializeMultithreadSystem() {
     try {
-        // 初始化共享內存
-        const totalParticles = particleCounts.reduce((a, b) => a + b, 0);
-        sharedMemory = new SharedMemoryManager(totalParticles, {
-            width: canvas.width,
-            height: canvas.height,
-        });
-
         // 初始化工作線程池
         await initializeWorkerPool();
         
@@ -626,128 +624,102 @@ async function initializeMultithreadSystem() {
     }
 }
 
-// 初始化單個工作線程
-function initializeWorker() {
-    return new Promise((resolve, reject) => {
-        // 檢查必要的全局變量
-        if (!particleTypes || !ballRadius) {
-            reject(new Error('必要的初始化參數缺失'));
-            return;
-        }
-
-        const worker = new Worker('particleCalculator.js',
-            {
-                sharedMemory: {
-                    particleData: sharedMemory.getBuffer('particleData'),
-                    nearby: sharedMemory.getBuffer('nearby'),
-                    offsetsX: sharedMemory.getBuffer('offsetsX'),
-                    offsetsY: sharedMemory.getBuffer('offsetsY'),
-                    sync: sharedMemory.getBuffer('sync')
-                }
-            }
-        );
-
-        // 設置初始化超時
-        const timeout = setTimeout(() => {
-            worker.terminate(); // 終止超時的worker
-            reject(new Error('Worker 初始化超時'));
-        }, 5000);
-
-        // 處理worker消息
-        worker.onmessage = function(e) {
-            if (e.data.type === 'initComplete') {
-                clearTimeout(timeout);
-                if (e.data.status === 'success') {
-                    console.log('Worker 初始化成功');
-                    resolve(worker);
-                } else {
-                    worker.terminate();
-                    reject(new Error(e.data.error || 'Worker 初始化失敗'));
-                }
-            } else if (e.data.type === 'calculateComplete') {
-                performanceData.calcCount += e.data.calcCount;
-                performanceData.skippedCount += e.data.skippedCount;
-            } else if (e.data.type === 'error') {
-                console.error('Worker 錯誤:', e.data.message);
-                // 不要在這裡 reject，因為這可能是運行時錯誤
-            }
-        };
-
-        // 處理worker錯誤
-        worker.onerror = function(error) {
-            clearTimeout(timeout);
-            console.error('Worker 創建錯誤:', error);
-            worker.terminate();
-            reject(error);
-        };
-
-        // 處理worker終止
-        worker.onmessageerror = function(error) {
-            clearTimeout(timeout);
-            console.error('Worker 消息錯誤:', error);
-            worker.terminate();
-            reject(error);
-        };
-
-        try {
-            // 發送初始化消息
-            worker.postMessage({
-                type: 'initSharedMemory',
-                particleTypes: particleTypes,
-                ballRadius: ballRadius,
-            });
-            console.log('Worker 初始化消息已發送');
-        } catch (error) {
-            clearTimeout(timeout);
-            worker.terminate();
-            reject(new Error('發送初始化消息失敗: ' + error.message));
-        }
-    });
-}
-
 // >>> 多線程初始化 <<<
 async function initializeWorkerPool() {
-    const numWorkers = navigator.hardwareConcurrency || 4;
-    workerPool = new Array(numWorkers);
-    
-    for (let i = 0; i < numWorkers; i++) {
-        workerPool[i] = new Worker('particleWorker.js');
+    try {
+        const numWorkers = navigator.hardwareConcurrency - 1 || 3; // 保留一個核心給主線程
+        workerPool = new Array(numWorkers);
+        
+        // 並行初始化所有工作線程
+        const initPromises = [];
+        for (let i = 0; i < numWorkers; i++) {
+            initPromises.push(initializeWorker(i));
+        }
+        
+        await Promise.all(initPromises);
+        console.log(`成功初始化 ${numWorkers} 個工作線程`);
+        isUsingMultithread = true;
+        return true;
+    } catch (error) {
+        console.error('工作線程池初始化失敗:', error);
+        isUsingMultithread = false;
+        throw error;
     }
 }
 
-// 工作線程初始化
-async function initializeWorker(worker) {
+// 初始化單個工作線程
+async function initializeWorker(workerId) {
     return new Promise((resolve, reject) => {
-        worker.postMessage({
-            type: 'initSharedMemory',
-            sharedMemory: sharedMemory.getBuffers(),
-            particleTypes: particleTypes,
-            ballRadius: ballRadius,
-            canvas: {
-                width: canvas.width,
-                height: canvas.height
-            }
-        });
+        try {
+            const worker = new Worker('particleCalculator.js', { workerId: workerId }); // 創建新的工作線程並設置ID
+            workerPool[workerId] = worker;
+            console.log("worker " + workerId + " initializing...")
 
-        worker.onmessage = (e) => {
-            if (e.data.type === 'initComplete') {
-                if (e.data.status === 'success') {
-                    resolve();
-                } else {
-                    reject(new Error(e.data.error));
+            // 設置初始化超時
+            const timeout = setTimeout(() => {
+                worker.terminate();
+                reject(new Error(`工作線程 ${workerId} 初始化超時`));
+            }, 5000);
+
+            // 處理工作線程消息
+            worker.onmessage = function(e) {
+                if (e.data.type === 'initComplete') {
+                    clearTimeout(timeout);
+                    if (e.data.status === 'success') {
+                        console.log(`工作線程 ${workerId} 初始化成功`);
+                        resolve(worker);
+                    } else {
+                        worker.terminate();
+                        reject(new Error(e.data.error || `工作線程 ${workerId} 初始化失敗`));
+                    }
+                } else if (e.data.type === 'calculateComplete') {
+                    // 更新性能數據
+                    performanceData.gAffectCalcCountsTimes += e.data.calcCount || 0;
+                    performanceData.particleSkippedCountsTimes += e.data.skippedCount || 0;
+                } else if (e.data.type === 'error') {
+                    console.error(`工作線程 ${workerId} 錯誤:`, e.data.message);
                 }
-            }
-        };
+            };
+
+            // 處理工作線程錯誤
+            worker.onerror = function(error) {
+                clearTimeout(timeout);
+                console.error(`工作線程 ${workerId} 創建錯誤:`, error);
+                worker.terminate();
+                reject(error);
+            };
+
+            // 發送初始化消息
+            worker.postMessage({
+                type: 'initSharedMemory',
+                workerId: workerId,
+                particleTypes: particleTypes,
+                particleCounts: particleCounts,
+                ballRadius: ballRadius,
+                canvas: {
+                    width: canvas.width,
+                    height: canvas.height
+                },
+                sharedMemory: sharedMemory
+            });
+
+        } catch (error) {
+            reject(new Error(`創建工作線程 ${workerId} 失敗: ${error.message}`));
+        }
     });
 }
 
-// =============== 工作線程池管理 ===============
 // --終止工作線程池--
 function terminateWorkerPool() {
-    // --是否存在工作線程池--
     if (workerPool) {
-        workerPool.forEach(worker => worker.terminate()); // 終止工作線程
-        workerPool = []; // 清空工作線程池
+        workerPool.forEach((worker, index) => {
+            if (worker) {
+                worker.terminate();
+                console.log(`終止工作線程 ${index}`);
+            }
+        });
+        workerPool = [];
+        isUsingMultithread = false;
     }
 }
 

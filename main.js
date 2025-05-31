@@ -6,7 +6,7 @@
 console.log("main.js loaded successfully")
 
 // 創建 Web Worker
-let worker = new Worker('particleWorker_Singlethread.js');
+let worker = new Worker('particleWorker_multithread_fixed.js');
 // 用戶可控制數據的初始化
 const gameState = {
     // 粒子系統基本設置
@@ -113,7 +113,15 @@ document.addEventListener('DOMContentLoaded', () => {
         particlesGroups.forEach(particles => {
             //console.log(`particles.count: ${particles.count}`);
             for (let i = 0; i < particles.count; i++) {
-                let p = particles.getParticle(i);    
+                let p
+                try{
+                    p = particles.getParticle(i);
+                }
+                catch (e){
+                    console.error(particles)
+                    console.error(e)
+                    throw new Error("");
+                }
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, gameState.ballRadius, 0, Math.PI * 2);
                 //console.log(JSON.stringify(p));
@@ -217,8 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             for (let i = 0; i < particleTypes; i++) {
                 const count = particleCounts[i];
-                // 每個粒子需要 7 個 Int32 (x, y, vx, vy, color, type, id)
-                const bufferSize = count * 7 * Int32Array.BYTES_PER_ELEMENT;
+                // 每個粒子需要 5 個 Int32 (x, y, vx, vy, id)
+                // 額外分配 2 個 Int32 用於存儲 color 和 type
+                const bufferSize = (count * 5 + 2) * Int32Array.BYTES_PER_ELEMENT;
                 this.buffers.particleGroups[i] = new SharedArrayBuffer(bufferSize);
                 
                 // 創建視圖
@@ -227,15 +236,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     y: new Int32Array(this.buffers.particleGroups[i], count * Int32Array.BYTES_PER_ELEMENT, count),
                     vx: new Int32Array(this.buffers.particleGroups[i], 2 * count * Int32Array.BYTES_PER_ELEMENT, count),
                     vy: new Int32Array(this.buffers.particleGroups[i], 3 * count * Int32Array.BYTES_PER_ELEMENT, count),
-                    color: new Int32Array(this.buffers.particleGroups[i], 4 * count * Int32Array.BYTES_PER_ELEMENT, count),
-                    type: new Int32Array(this.buffers.particleGroups[i], 5 * count * Int32Array.BYTES_PER_ELEMENT, count),
-                    id: new Int32Array(this.buffers.particleGroups[i], 6 * count * Int32Array.BYTES_PER_ELEMENT, count)
+                    id: new Int32Array(this.buffers.particleGroups[i], 4 * count * Int32Array.BYTES_PER_ELEMENT, count),
+                    color: new Int32Array(this.buffers.particleGroups[i], 5 * count * Int32Array.BYTES_PER_ELEMENT, 1), // 存儲 color
+                    type: new Int32Array(this.buffers.particleGroups[i], (5 * count + 1) * Int32Array.BYTES_PER_ELEMENT, 1) // 存儲 type
                 };
             }
 
             // 創建同步計數器緩衝區
             this.buffers.sync = new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * particleTypes);
             this.views.sync = new Int32Array(this.buffers.sync);
+        }
+
+        // 新增：設置 color 和 type
+        setParticleTypeColor(type, color) {
+            const view = this.views.particleGroups[type];
+            Atomics.store(view.color, 0, this.hslToInt(color)); // 存儲 color
+            Atomics.store(view.type, 0, type); // 存儲 type
+            console.log(`setParticleTypeColor: ${type},color: ${color}, intcolor: ${this.hslToInt(color)}`);
+        }
+
+        // 新增：獲取 color 和 type
+        getParticleTypeColor(type) {
+            const view = this.views.particleGroups[type];
+            return {
+                color: this.intToHsl(Atomics.load(view.color, 0)), // 讀取 color
+                type: Atomics.load(view.type, 0) // 讀取 type
+            };
         }
 
         // 新增：將 HSL 字串轉換為整數
@@ -279,8 +305,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 view.y.fill(0);
                 view.vx.fill(0);
                 view.vy.fill(0);
-                view.color.fill(0);
-                view.type.fill(0);
                 view.id.fill(0);
             }
             
@@ -311,7 +335,9 @@ document.addEventListener('DOMContentLoaded', () => {
             this.count = sharedMemoryManager.particleCounts[type];
             this.particleData = sharedMemoryManager.getParticleView(type);
             this.syncCounter = sharedMemoryManager.getSyncView()[type];
-            this.sharedMemoryManager = sharedMemoryManager; // 保存引用以便使用轉換方法
+            this.sharedMemoryManager = sharedMemoryManager;
+            Atomics.store(this.particleData.color, 0, this.sharedMemoryManager.hslToInt(gameState.particleColors[type]));
+            Atomics.store(this.particleData.type, 0, type);
         }
 
         add(particle, index) {
@@ -319,15 +345,24 @@ document.addEventListener('DOMContentLoaded', () => {
             storeAtomicFloat(this.particleData.y, index, particle.y);
             storeAtomicFloat(this.particleData.vx, index, particle.vx);
             storeAtomicFloat(this.particleData.vy, index, particle.vy);
-            // 將 HSL 字串轉換為整數存儲
-            Atomics.store(this.particleData.color, index, this.sharedMemoryManager.hslToInt(particle.color));
-            storeAtomicFloat(this.particleData.type, index, particle.type);
-            storeAtomicFloat(this.particleData.id, index, particle.id);
+            Atomics.store(this.particleData.id, index, particle.id);
+        }
+
+        getParticle(index) {
+            return {
+                x: loadAtomicFloat(this.particleData.x, index),
+                y: loadAtomicFloat(this.particleData.y, index),
+                vx: loadAtomicFloat(this.particleData.vx, index),
+                vy: loadAtomicFloat(this.particleData.vy, index),
+                color: this.sharedMemoryManager.intToHsl(Atomics.load(this.particleData.color, 0)), // 使用共享內存中的 color
+                type: Atomics.load(this.particleData.type, 0),  // 使用共享內存中的 type
+                id: Atomics.load(this.particleData.id, index)
+            };
         }
 
         clear() {
             this.particleData.x.fill(0);
-            this.particleData.y.fill(0);
+            this.particleData.y.fill(0);    
             this.particleData.vx.fill(0);
             this.particleData.vy.fill(0);
             this.particleData.color.fill(0);
@@ -346,20 +381,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // 新增：獲取粒子數量
         getCount() {
             return this.count;
-        }
-
-        // 新增：獲取指定索引的粒子數據
-        getParticle(index) {
-            return {
-                x: loadAtomicFloat(this.particleData.x, index),
-                y: loadAtomicFloat(this.particleData.y, index),
-                vx: loadAtomicFloat(this.particleData.vx, index),
-                vy: loadAtomicFloat(this.particleData.vy, index),
-                // 將整數轉換回 HSL 字串
-                color: this.sharedMemoryManager.intToHsl(Atomics.load(this.particleData.color, index)),
-                type: loadAtomicFloat(this.particleData.type, index),
-                id: loadAtomicFloat(this.particleData.id, index)
-            };
         }
 
         // 新增：更新指定索引的粒子數據
@@ -393,8 +414,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 y,
                 vx: 0,
                 vy: 0,
-                color: c,
-                type,
                 id
             }, i);
         }
@@ -421,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let type = 0; type < gameState.particleTypes; type++) {
             gameState.particleGroups[type] = create(gameState.particleCounts[type], gameState.particleColors[type], type, sharedMemory); // 創建粒子
         }
-
+        console.log("gameState.particleGroups: " + JSON.stringify(gameState.particleGroups))
         // 重置性能數據
         Object.keys(performanceDataLocal).forEach(key => {
             if (performanceDataLocal[key] instanceof Array) {
@@ -600,8 +619,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 接收來自 Worker 的消息
     worker.onmessage = function (e) {
         if (e.data.type === 'update') {
-            particles = e.data.particles;
-            gameState.particleGroups = e.data.particleGroups;
             //console.log(`before performanceDataLocal.totalTimeAverage: ${performanceDataLocal.totalTimeAverage}`);
             performanceData = e.data.performanceData;
             //console.log(`after performanceDataLocal.totalTimeAverage: ${performanceDataLocal.totalTimeAverage}`);
