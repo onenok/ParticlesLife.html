@@ -4,6 +4,21 @@
  */
 
 console.log("main.js loaded successfully")
+// =============== 實用小函數區域 ===============
+/**
+ * 一次性控制臺輸出函數，只會輸出一次指定訊息
+ * @param {string} key 唯一鍵值
+ * @param {string} message 要輸出的訊息
+ */
+const onceConsole = (() => {
+    const printed = new Set();
+    return (key, ...message) => {
+        if (!printed.has(key)) {
+            console.log(...message);
+            printed.add(key);
+        }
+    };
+})();
 
 // 創建 Web Worker
 let worker = new Worker('particleWorker_multithread_fixed.js');
@@ -18,7 +33,8 @@ const gameState = {
         'hsl(120, 100%, 50%)', // 綠色
         'hsl(240, 100%, 50%)'  // 藍色
     ],
-    particleGroups: [],
+    //particleGroups: [],
+    sharedMemory: null,
     // 交互矩陣
     forceMatrix: [
         [1, 0.5, 0],
@@ -43,6 +59,7 @@ const gameState = {
     
     // 其他設置
     enableParticleAffcetRadiusShow: false,
+    selectedParticleIndex: null,
     selectedParticleId: null,
     selectedParticleType: null,
     nearbyParticlesList: [],
@@ -61,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastTime = performance.now();
     let fps = 0;
 
-    let particles = [];
     let performanceDataLocal = {
         updateIntervalCountsTimes: 0,
         totalTimeAll: [],
@@ -106,25 +122,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = canvas2d.getContext("2d");
 
 
-    function draw(particlesGroups) {
+    function draw(sharedMemory) {
         ctx.fillStyle = 'black';
         ctx.fillRect(0, 0, canvas2d.width, canvas2d.height);
-        
-        particlesGroups.forEach(particles => {
-            //console.log(`particles.count: ${particles.count}`);
-            for (let i = 0; i < particles.count; i++) {
-                let p
+
+        for (let type = 0; type < gameState.particleTypes; type++) {
+            for (let i = 0; i < gameState.particleCounts[type]; i++) {
+                let p;
                 try{
-                    p = particles.getParticle(i);
+                    p = sharedMemory.getParticle(type, i);
+                    onceConsole(`draw particle ${type}`, JSON.stringify(p));
                 }
                 catch (e){
-                    console.error(particles)
+                    console.error(p)
                     console.error(e)
                     throw new Error("");
                 }
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, gameState.ballRadius, 0, Math.PI * 2);
-                //console.log(JSON.stringify(p));
+                switch (type) {
+                    case 0:
+                        onceConsole("type 0", JSON.stringify(p));
+                        break;
+                    case 1:
+                        onceConsole("type 1", JSON.stringify(p));
+                        break;
+                    case 2:
+                        onceConsole("type 2", JSON.stringify(p));
+                        break;
+                }
                 if (gameState.enableParticleAffcetRadiusShow) {
                     if (gameState.selectedParticleId === null) {
                         ctx.fillStyle = 'gray';
@@ -194,8 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     ctx.fill();
                     ctx.closePath();
                 }
+                drawVectorArrow(p.x, p.y, p.vx, p.vy); // 繪製速度向量箭頭
             };
-        });
+        };
     }
 
 
@@ -210,7 +237,34 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.textAlign = "center";
         ctx.fillText('⚠️ 畫布正在移動中', canvasWidth/2, canvasHeight/2, canvasWidth); // Added warning emoji and using fillText for solid text
     }
-    
+
+    function drawVectorArrow(x, y, vx, vy) {
+        ctx.save();
+        ctx.strokeStyle = vx || vy ? 'white': 'red';
+        ctx.lineWidth = 1.5;
+        var headlen = 5; // 箭頭長度
+        var angle = Math.atan2(vy, vx);
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + vx, y + vy);
+
+        // 左側箭頭
+        ctx.moveTo(x + vx, y + vy);
+        ctx.lineTo(
+            x + vx - headlen * Math.cos(angle - Math.PI / 6),
+            y + vy - headlen * Math.sin(angle - Math.PI / 6)
+        );
+        // 右側箭頭
+        ctx.moveTo(x + vx, y + vy);
+        ctx.lineTo(
+            x + vx - headlen * Math.cos(angle + Math.PI / 6),
+            y + vy - headlen * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.stroke();
+        ctx.restore();
+    }
+
     // --SharedMemoryManager類處理所有共享內存的分配和管理--
     class SharedMemoryManager {
         constructor(particleTypes, particleCounts) {
@@ -281,6 +335,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return this.buffers.particleGroups[type];
         }
 
+        //
+        getParticleGroup() {
+            return this.views.particleGroups;
+        }
+
         // 獲取指定類型的粒子視圖
         getParticleView(type) {
             return this.views.particleGroups[type];
@@ -327,10 +386,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 sync: this.views.sync
             };
         }
+
+        // 新增：直接新增粒子
+        addParticle(type, particle, index) {
+            const view = this.views.particleGroups[type];
+            storeAtomicFloat(view.x, index, particle.x);
+            storeAtomicFloat(view.y, index, particle.y);
+            storeAtomicFloat(view.vx, index, particle.vx);
+            storeAtomicFloat(view.vy, index, particle.vy);
+            Atomics.store(view.color, 0, this.hslToInt(particle.color)); // 存儲 color
+            Atomics.store(view.id, index, particle.id);
+        }
+
+        // 新增：獲取粒子
+        getParticle(type, index) {
+            const view = this.views.particleGroups[type];
+            return {
+                x: loadAtomicFloat(view.x, index),
+                y: loadAtomicFloat(view.y, index),
+                vx: loadAtomicFloat(view.vx, index),
+                vy: loadAtomicFloat(view.vy, index),
+                color: this.intToHsl(Atomics.load(view.color, 0)),
+                type: Atomics.load(view.type, 0),
+                id: Atomics.load(view.id, index)
+            };
+        }
+
+        // 修改 create 函數直接使用 SharedMemoryManager
+        create(type, count) {
+            for (let i = 0; i < count; i++) {
+                this.addParticle(type, {
+                    x: rX(),
+                    y: rY(),
+                    vx: 0,
+                    vy: 0,
+                    color: gameState.particleColors[type],
+                    id: nextParticleId++
+                }, i);
+            }
+        }
     }
 
     // 修改 ParticleData 類以配合新的 SharedMemoryManager
-    class ParticleData {
+    /*class ParticleData {
         constructor(type, sharedMemoryManager) {
             this.count = sharedMemoryManager.particleCounts[type];
             this.particleData = sharedMemoryManager.getParticleView(type);
@@ -387,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateParticle(index, particle) {
             this.add(particle, index);
         }
-    }
+    }*/
     
     // 添加atomicFloat輔助函數
     function storeAtomicFloat(array, index, value) {
@@ -399,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // >>> 生成指定類型的粒子組 <<<
-    function create(count, c, type, sharedMemory) {
+    /*function create(count, c, type, sharedMemory) {
         // 創建 ParticleData 實例來管理共享內存
         const particleData = new ParticleData(type, sharedMemory);
         
@@ -419,7 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         return particleData;
-    }
+    }*/
     // >>> 生成隨機X坐標 <<<
     function rX() {
         return Math.random() * (canvas2d.width - 100) + 50; // 隨機X坐標
@@ -432,15 +530,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初始化遊戲函數修改
     function initGame() {
-        let sharedMemory = new SharedMemoryManager(gameState.particleTypes, gameState.particleCounts);
-        gameState.particleGroups = []; // 粒子類型
-        nextParticleId = 0; // 重置 id 計數器
+        gameState.sharedMemory = new SharedMemoryManager(gameState.particleTypes, gameState.particleCounts);
         
         // --初始化矩陣和粒子--
+        nextParticleId = 0; // 重置 id 計數器
         for (let type = 0; type < gameState.particleTypes; type++) {
-            gameState.particleGroups[type] = create(gameState.particleCounts[type], gameState.particleColors[type], type, sharedMemory); // 創建粒子
+            gameState.sharedMemory.create(type, gameState.particleCounts[type]);
         }
-        console.log("gameState.particleGroups: " + JSON.stringify(gameState.particleGroups))
+        //gameState.particleGroups = sharedMemory.; // 粒子類型
+        //console.log("gameState.particleGroups: " + JSON.stringify(gameState.particleGroups))
         // 重置性能數據
         Object.keys(performanceDataLocal).forEach(key => {
             if (performanceDataLocal[key] instanceof Array) {
@@ -456,11 +554,11 @@ document.addEventListener('DOMContentLoaded', () => {
             particleCounts: gameState.particleCounts,
             canvasWidth: canvas2d.width,
             canvasHeight: canvas2d.height,
-            particleGroups: gameState.particleGroups,
+            //particleGroups: gameState.particleGroups,
             particleTypes: gameState.particleTypes,
             performanceData: performanceData,
             ballRadius: gameState.ballRadius,
-            sharedMemory: sharedMemory,
+            sharedMemory: gameState.sharedMemory,
         });
     }
     // 隨機化值
@@ -484,10 +582,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-
+ 
     function update() {
         // 更新所選單元格的顯示
-        draw(gameState.particleGroups);
+        draw(gameState.sharedMemory);
         if (gameState.isMovingCanvas) {
             drawWarningCanvasMoving();
         }
@@ -568,18 +666,29 @@ document.addEventListener('DOMContentLoaded', () => {
         // 更新選中粒子的屬性顯示
         if (gameState.enableParticleAffcetRadiusShow){
             const propertyElement = document.getElementById('selectedParticleProperty');
-            if (gameState.selectedParticleId !== null && particles.length > 0) {
-                const selectedParticle = particles.find(p => p.id === gameState.selectedParticleId);
-                if (selectedParticle) {
+            if (gameState.selectedParticleId !== null && gameState.selectedParticleType !== null) {
+                // 在 sharedMemory 中查找選中的粒子
+                let selectedParticle = null;
+                let found = false;
+                for (let i = 0; i < gameState.particleCounts[gameState.selectedParticleType]; i++) {
+                    const p = gameState.sharedMemory.getParticle(gameState.selectedParticleType, i);
+                    if (p.id === gameState.selectedParticleId) {
+                        selectedParticle = p;
+                        found = true;
+                        break;
+                    }
+                }
+                if (found && selectedParticle) {
                     const properties = [
                         `\n`,
                         `類型: ${selectedParticle.type + 1}`,
                         `位置: (${selectedParticle.x.toFixed(2)}, ${selectedParticle.y.toFixed(2)})`,
                         `速度: (${selectedParticle.vx.toFixed(2)}, ${selectedParticle.vy.toFixed(2)})`,
                         `顏色: ${selectedParticle.color}`,
-                        `是否在邊界外: ${selectedParticle.isOutside ? '是' : '否'}`
+                        // 這裡 isOutside 屬性如果沒有可以移除或自定義
+                        typeof selectedParticle.isOutside !== "undefined" ? `是否在邊界外: ${selectedParticle.isOutside ? '是' : '否'}` : ''
                     ];
-                    propertyElement.innerHTML = properties.join('<br>');
+                    propertyElement.innerHTML = properties.filter(Boolean).join('<br>');
                 } else {
                     propertyElement.textContent = '找不到選中的粒子';
                 }
@@ -806,13 +915,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // 初始化新的 worker
         worker.postMessage({ 
             type: 'changeThreadInit',
-            particleGroups: gameState.particleGroups,
+            particleCounts: gameState.particleCounts,
             canvasWidth: canvas2d.width,
             canvasHeight: canvas2d.height,
+            //particleGroups: gameState.particleGroups,
             particleTypes: gameState.particleTypes,
-            particleColors: gameState.particleColors,
-            particleCounts: gameState.particleCounts,
             performanceData: performanceData,
+            ballRadius: gameState.ballRadius,
+            sharedMemory: gameState.sharedMemory,
         });
 
         // 更新所有相關狀態
@@ -1082,11 +1192,11 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.distanceMatrix = distanceMatrix;
         //console.log(`index.html: distanceMatrix: ${distanceMatrix}`);
         
-        particleGroups = new Array(types);
+        /*particleGroups = new Array(types);
         for (let i = 0; i < types; i++) {
             particleGroups[i] = [];
         }
-        gameState.particleGroups = particleGroups;
+        gameState.particleGroups = particleGroups;*/
         //console.log(`index.html: particleGroups: ${particleGroups}`);
     }
     function initializeColors(types) {
@@ -1121,15 +1231,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const rect = canvas2d.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            
-            // 找到最近的粒子
-            selectedParticle = particles.reduce((closest, particle) => {
-                const dx = particle.x - x;
-                const dy = particle.y - y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                return (distance < closest.distance)&&(distance < 10) ? { particle, distance } : closest;
-            }, { particle: null, distance: Infinity }).particle;
+
+            // 遍歷所有粒子，找到最近的粒子
+            let closest = { particle: null, distance: Infinity };
+            let selectedIndex = null;
+            for (let type = 0; type < gameState.particleTypes; type++) {
+                for (let i = 0; i < gameState.particleCounts[type]; i++) {
+                    const particle = gameState.sharedMemory.getParticle(type, i);
+                    const dx = particle.x - x;
+                    const dy = particle.y - y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < closest.distance && distance < 10) {
+                        closest = { particle, distance };
+                        selectedIndex = i;
+                    }
+                }
+            }
+            const selectedParticle = closest.particle;
             if (selectedParticle) {
+                gameState.selectedIndex = selectedIndex;
                 gameState.selectedParticleId = selectedParticle.id;
                 gameState.selectedParticleType = selectedParticle.type;
                 document.getElementById('selectedParticleId').textContent = gameState.selectedParticleId;
@@ -1137,6 +1257,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 worker.postMessage({ 
                     type: 'updateSelectedParticle', 
                     particleId: gameState.selectedParticleId,
+                    particleIndex: gameState.selectedParticleIndex,
+                    particleType: gameState.selectedParticleType
                 });
             } else {
                 document.getElementById('selectedParticleId').textContent = '無';
@@ -1395,6 +1517,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateParticleSystem();
     updateEveryThing();
     initGame();
-    draw(gameState.particleGroups);
+    draw(gameState.sharedMemory);
     update();
 });

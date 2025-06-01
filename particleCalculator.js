@@ -5,7 +5,48 @@
 
 // =============== 常量定義 ===============
 const BETA = 0.3;
+// =============== 實用小函數區域 ===============
+const sharedMemoryAPI = {
+    getParticleGroups() {
+        return sharedMemory.views.particleGroups;
+    },
+    getParticleView(type) {
+        return sharedMemory.views.particleGroups[type];
+    },
 
+    getParticle(type, index) {
+        const view = this.getParticleView(type);
+        return {
+            x: loadAtomicFloat(view.x, index),
+            y: loadAtomicFloat(view.y, index),
+            vx: loadAtomicFloat(view.vx, index),
+            vy: loadAtomicFloat(view.vy, index),
+            id: Atomics.load(view.id, index)
+        };
+    },
+
+    updateParticle(type, index, updates) {
+        const view = this.getParticleView(type);
+        if (updates.x !== undefined) storeAtomicFloat(view.x, index, updates.x);
+        if (updates.y !== undefined) storeAtomicFloat(view.y, index, updates.y);
+        if (updates.vx !== undefined) storeAtomicFloat(view.vx, index, updates.vx);
+        if (updates.vy !== undefined) storeAtomicFloat(view.vy, index, updates.vy);
+    }
+};
+/**
+ * 一次性控制臺輸出函數，只會輸出一次指定訊息
+ * @param {string} key 唯一鍵值
+ * @param {string} message 要輸出的訊息
+ */
+const onceConsole = (() => {
+    const printed = new Set();
+    return (key, ...message) => {
+        if (!printed.has(key)) {
+            console.log(key, ...message);
+            printed.add(key);
+        }
+    };
+})();
 // =============== 輔助函數 ===============
 // 計算粒子間作用力
 function calculateForce(r, a) {
@@ -38,7 +79,7 @@ let ballRadius = 0;
 let isThrough = false;
 let forceMatrix = [];
 let distanceMatrix = [];
-let currentDt = 1/144;
+let currentDt = 1/60;
 let frictionFactor = 1;
 let test = 0;
 
@@ -54,10 +95,10 @@ self.onmessage = function(e) {
                 
                 // 初始化基本參數
                 workerId = e.data.workerId;
-                console.log('Worker ' + workerId + ': Initializing...');
-            particleTypes = e.data.particleTypes;
+                console.log('Worker ' + workerId + ': received Initializing...', performance.now());
+                particleTypes = e.data.particleTypes;
                 particleCounts = e.data.particleCounts;
-            ballRadius = e.data.ballRadius;
+                ballRadius = e.data.ballRadius;
                 canvas.width = e.data.canvas.width;
                 canvas.height = e.data.canvas.height;
                 
@@ -72,15 +113,13 @@ self.onmessage = function(e) {
                 self.postMessage({ type: 'initComplete', status: 'failed', error: error.message });
             }
             break;
-            
         case 'calculateDirect':
-            if (test == 0) {
-                console.log("adaseryesheshgsrhwshsgrwt34yrqhszjjf");
-                test++;
-            }
+            onceConsole('calculateDirectOnMessage', `Worker ${workerId} received calculateDirect message ${performance.now()}`);
             try {
                 const { startIndex, endIndex, particleType, forceMatrix: newForceMatrix, distanceMatrix: newDistanceMatrix, isThrough: newIsThrough, currentDt: newCurrentDt, frictionFactor: newFrictionFactor } = e.data;
-                
+                canvas.width = e.data.canvasWidth;
+                canvas.height = e.data.canvasHeight;
+                onceConsole(`particleType`, particleType);
                 // 更新計算參數
                 forceMatrix = newForceMatrix;
                 distanceMatrix = newDistanceMatrix;
@@ -89,22 +128,28 @@ self.onmessage = function(e) {
                 frictionFactor = newFrictionFactor;
                 
                 // 執行直接計算
+                onceConsole('calculateDirect', `Worker ${workerId} calculating forces for particle type ${particleType} from index ${startIndex} to ${endIndex} at ${performance.now()}`);
                 const { calcCount, skippedCount } = calculateDirectForce(startIndex, endIndex, particleType);
-                
-            self.postMessage({
+                //console.debug("calculateDirectComplete");
+            
+                self.postMessage({
                     type: 'calculateDirectComplete',
-                calcCount,
-                skippedCount
-            });
-        } catch (error) {
+                    calcCount,
+                    skippedCount
+                });
+            } catch (error) {
                 self.postMessage({ type: 'error', message: error.message });
             }
             break;
             
         case 'positionUpdate':
+            onceConsole('positionUpdateOnMessage', `Worker ${workerId} received positionUpdate message ${performance.now()}`);
+            canvas.width = e.data.canvasWidth;
+            canvas.height = e.data.canvasHeight;
             try {
                 const { startIndex, endIndex, particleType, currentDt, frictionFactor, isThrough } = e.data;
                 updateParticlePositions(startIndex, endIndex, particleType, currentDt, frictionFactor, isThrough);
+                onceConsole('positionUpdated', `Worker ${workerId} updated positions for particle type ${particleType} from index ${startIndex} to ${endIndex} at ${performance.now()}`);
                 self.postMessage({ type: 'positionUpdateComplete' });
             } catch (error) {
                 self.postMessage({ type: 'error', message: error.message });
@@ -114,10 +159,12 @@ self.onmessage = function(e) {
 };
 // =============== 計算函數 ===============
 function calculateDirectForce(startIndex, endIndex, particleType) {
+    onceConsole('calculateDirectForce', `Worker ${workerId} calculating forces at ${performance.now()}`);
     let calcCount = 0;
     let skippedCount = 0;
     const view1 = particleViews[particleType];
-    
+    onceConsole('calculateDirectForce_check', `Worker ${workerId} calculating forces for particle type ${particleType} from index ${startIndex} to ${endIndex}\n particleViews is ${particleViews}, particleType is ${particleType}, particleCounts is ${particleCounts[particleType]}, forceMatrix is ${forceMatrix}, distanceMatrix is ${distanceMatrix}`);
+    // 檢查參數有效性
     for (let i = startIndex; i < endIndex; i++) {
         let totalForceX = 0;
         let totalForceY = 0;
@@ -138,16 +185,16 @@ function calculateDirectForce(startIndex, endIndex, particleType) {
                 let dx = loadAtomicFloat(view2.x, j) - loadAtomicFloat(view1.x, i);
                 let dy = loadAtomicFloat(view2.y, j) - loadAtomicFloat(view1.y, i);
                 
-                        if (isThrough) {
+                if (isThrough) {
                     if (Math.abs(dx) > canvas.width / 2) {
                         dx = dx - Math.sign(dx) * canvas.width;
-                            }
+                    }
                     if (Math.abs(dy) > canvas.height / 2) {
                         dy = dy - Math.sign(dy) * canvas.height;
-                            }
-                        }
+                    }
+                }
 
-                        const distSquared = dx * dx + dy * dy;
+                const distSquared = dx * dx + dy * dy;
                 const maxDistSquared = maxDistance * maxDistance;
                 
                 if (distSquared < maxDistSquared && distSquared > 0) {
@@ -158,8 +205,8 @@ function calculateDirectForce(startIndex, endIndex, particleType) {
                     if (forceMagnitude !== 0) {
                         const fx = (forceMagnitude * dx) / distance;
                         const fy = (forceMagnitude * dy) / distance;
-                        totalForceX += fx;
-                        totalForceY += fy;
+                        totalForceX += fx * 10;
+                        totalForceY += fy * 10;
                         calcCount++;
                     }
                 }
@@ -171,30 +218,33 @@ function calculateDirectForce(startIndex, endIndex, particleType) {
         const currentVy = loadAtomicFloat(view1.vy, i);
         storeAtomicFloat(view1.vx, i, currentVx + totalForceX * currentDt);
         storeAtomicFloat(view1.vy, i, currentVy + totalForceY * currentDt);
+        onceConsole('calculateDirect_totalForce', `Worker ${workerId} updated particle ${i} of type ${particleType} with forces (${currentVx + totalForceX * currentDt}, ${currentVy + totalForceY * currentDt}) at ${performance.now()}`);
+        onceConsole('calculateDirect_totalForce_check', `Worker ${workerId} particle ${i} of type ${particleType} has total forces (${loadAtomicFloat(view1.vx, i)}, ${loadAtomicFloat(view1.vy, i)}) at ${performance.now()}`);
     }
     
     return { calcCount, skippedCount };
 }
 
 function updateParticlePositions(startIndex, endIndex, particleType, dt, frictionFactor, isThrough) {
+    onceConsole('updateParticlePositions_start', `UPDATEING positions Worker ${workerId}  for particle type ${particleType} from index ${startIndex} to ${endIndex} at ${performance.now()}`);
     const view = particleViews[particleType];
     
-            for (let i = startIndex; i < endIndex; i++) {
+    for (let i = startIndex; i < endIndex; i++) {
         // 讀取當前位置和速度
         let x = loadAtomicFloat(view.x, i);
         let y = loadAtomicFloat(view.y, i);
         let vx = loadAtomicFloat(view.vx, i) * frictionFactor;
         let vy = loadAtomicFloat(view.vy, i) * frictionFactor;
-        
+        onceConsole('updateParticlePositions_read', `Worker ${workerId} read particle ${i} of type ${particleType} with position (${x}, ${y}) and velocity (${vx}, ${vy}) at ${performance.now()}`);
         // 更新位置
         x += vx * dt;
         y += vy * dt;
         
         // 邊界處理
-                if (isThrough) {
+        if (isThrough) {
             x = ((x % canvas.width) + canvas.width) % canvas.width;
             y = ((y % canvas.height) + canvas.height) % canvas.height;
-                } else {
+        } else {
             if (x < 0) {
                 x = 0;
                 vx = Math.abs(vx);
