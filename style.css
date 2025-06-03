@@ -10,6 +10,13 @@ body {
     background-color: black;
 }
 
+.circle {
+    width: 1em;
+    height: 1em;
+    border-radius: 50%;
+    display: inline-block;
+}
+
 #controls {
     -webkit-user-select: none;
     -moz-user-select: none;

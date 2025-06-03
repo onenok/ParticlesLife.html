@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ctx.fill();
                     ctx.closePath();
                 }
-                drawVectorArrow(p.x, p.y, p.vx, p.vy); // 繪製速度向量箭頭
+                //drawVectorArrow(p.x, p.y, p.vx, p.vy); // 繪製速度向量箭頭
             };
         };
     }
@@ -239,27 +239,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawVectorArrow(x, y, vx, vy) {
+        if (!(vx || vy)) return;
         ctx.save();
-        ctx.strokeStyle = vx || vy ? 'white': 'red';
+        ctx.strokeStyle = 'white';
         ctx.lineWidth = 1.5;
-        var headlen = 5; // 箭頭長度
+        var headlen = 2; // 箭頭長度
         var angle = Math.atan2(vy, vx);
-
+        let dx = vx*10;
+        let dy = vy*10;
         ctx.beginPath();
         ctx.moveTo(x, y);
-        ctx.lineTo(x + vx, y + vy);
+        ctx.lineTo(x + dx, y + dy);
 
         // 左側箭頭
-        ctx.moveTo(x + vx, y + vy);
+        ctx.moveTo(x + dx, y + dy);
         ctx.lineTo(
-            x + vx - headlen * Math.cos(angle - Math.PI / 6),
-            y + vy - headlen * Math.sin(angle - Math.PI / 6)
+            x + dx - headlen * Math.cos(angle - Math.PI / 6),
+            y + dy - headlen * Math.sin(angle - Math.PI / 6)
         );
         // 右側箭頭
-        ctx.moveTo(x + vx, y + vy);
+        ctx.moveTo(x + dx, y + dy);
         ctx.lineTo(
-            x + vx - headlen * Math.cos(angle + Math.PI / 6),
-            y + vy - headlen * Math.sin(angle + Math.PI / 6)
+            x + dx - headlen * Math.cos(angle + Math.PI / 6),
+            y + dy - headlen * Math.sin(angle + Math.PI / 6)
         );
         ctx.stroke();
         ctx.restore();
@@ -396,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             storeAtomicFloat(view.vy, index, particle.vy);
             Atomics.store(view.color, 0, this.hslToInt(particle.color)); // 存儲 color
             Atomics.store(view.id, index, particle.id);
+            Atomics.store(view.type, 0, type); // 存儲 type
         }
 
         // 新增：獲取粒子
@@ -1244,6 +1247,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (distance < closest.distance && distance < 10) {
                         closest = { particle, distance };
                         selectedIndex = i;
+                        console.log(`選中粒子: 類型 ${type + 1}, 索引 ${i}, 距離 ${distance}, particles: ${particle}`);
                     }
                 }
             }
@@ -1254,16 +1258,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameState.selectedParticleType = selectedParticle.type;
                 document.getElementById('selectedParticleId').textContent = gameState.selectedParticleId;
                 // 請求 worker 計算附近的粒子
+                console.log('選中粒子','selectedParticleId', gameState.selectedParticleId, 'selectedParticleIndex', gameState.selectedIndex, 'selectedParticleType', gameState.selectedParticleType);
                 worker.postMessage({ 
                     type: 'updateSelectedParticle', 
                     particleId: gameState.selectedParticleId,
-                    particleIndex: gameState.selectedParticleIndex,
+                    particleIndex: gameState.selectedIndex,
                     particleType: gameState.selectedParticleType
                 });
             } else {
                 document.getElementById('selectedParticleId').textContent = '無';
                 gameState.selectedParticleId = null;
                 gameState.selectedParticleType = null;
+                console.log('未選中粒子');
                 worker.postMessage({ 
                     type: 'updateSelectedParticle', 
                     particleId: null,
@@ -1298,9 +1304,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createMatrixTable(types, matrixType, min, max, step, matrix){
         let html = '<table class="matrix-container">';
-        for (let i = 0; i < types; i++) {
+        for (let i = -1; i < types; i++) {
             html += `<tr>`;
-            for (let j = 0; j < types; j++) {
+            if( i == -1){
+                html += `<td></td>`;    
+                for (let j = 0; j < types; j++) {
+                    html += `<td style="text-align: center; vertical-align: middle;"><div class="circle" style="background-color: ${hslToHex(gameState.particleColors[j])}; display: inline-block;"></div></td>`;
+                }
+                continue;
+            }
+            for (let j = -1; j < types; j++) {
+                if(j == -1){
+                    html += `<td style="text-align: center; vertical-align: middle;"><div class="circle" style="background-color: ${hslToHex(gameState.particleColors[i])}; display: inline-block;"></div></td>`;
+                    continue;
+                }
                 html += `<td><input type="number" class="matrix-input ${matrixType}" data-i="${i}" data-j="${j}" min="${min}" max="${max}" step="${step}" onkeyup="if(this.value>${max}){this.value=${max}}else if(this.value<${min}){this.value=${min}}" value="${matrix[i][j]}"></td>`;
             }
             html += `</tr>`;

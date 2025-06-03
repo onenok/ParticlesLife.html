@@ -79,7 +79,7 @@
         <div class="control-section">
             <h3>物理參數</h3>
             <div class="control-item">
-                <label for="t-half">摩擦半衰期(秒):</label>
+                <label for="t-half">速度半衰期(秒):</label>
                 <input type="range" id="t-half" min="0.001" max="0.1" step="0.001" value="0.020">
                 <input type="number" id="t-half-number" min="0.001" max="0.1" step="0.001" value="0.020">
             </div>
@@ -105,7 +105,6 @@
         <div class="control-section">
             <label for="threadMode" class="control-label">🔄 運算模式 (m)</label>
             <select id="threadMode" class="styled-select">
-                <option value="singlethread">單線程模式</option>
                 <option value="multithread">多線程模式</option>
                 <option value="multithread_gpu" disabled>GPU 加速模式 (開發中)</option>
                 <option value="multithread_wasm" disabled>WebAssembly 模式 (開發中)</option>
@@ -124,7 +123,7 @@
                 <br>最大: <span id="total-time-max"></span> ms
             </p>
             <p>粒子更新時間加法顯示:
-                <br>網格重置時間 + 取得附近粒子時間 + 重力影響計算時間 + 更新位置時間 + 粒子碰撞計算時間 + 粒子影響範圍計算時間
+                <br>重力影響計算時間 + 更新位置時間 + 粒子碰撞計算時間 + 粒子影響範圍計算時間
                 <br><span id="total-time-add-show"></span>
             </p>
             <p>網格重置時間: 

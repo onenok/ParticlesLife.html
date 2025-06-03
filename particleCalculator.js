@@ -52,7 +52,8 @@ const onceConsole = (() => {
 function calculateForce(r, a) {
     if (r < BETA) {
         return r / BETA - 1;
-    } else if (BETA < r && r < 1) {
+    } 
+    else if (BETA < r && r < 1) {
         return a * (1 - Math.abs(2 * r - 1 - BETA) / (1 - BETA));
     }
     return 0;
@@ -79,7 +80,7 @@ let ballRadius = 0;
 let isThrough = false;
 let forceMatrix = [];
 let distanceMatrix = [];
-let currentDt = 1/60;
+let currentDt = 1/144; // 預設時間步長為 1/144 秒
 let frictionFactor = 1;
 let test = 0;
 
@@ -106,7 +107,7 @@ self.onmessage = function(e) {
                 sharedMemory = e.data.sharedMemory;
                 particleViews = sharedMemory.views.particleGroups;
                 syncView = sharedMemory.views.sync;
-                
+                console.log('Worker ' + workerId + ': initialized', performance.now());
                 self.postMessage({ type: 'initComplete', status: 'success' });
         } catch (error) {
                 console.error('Worker ' + workerId + ' initialization failed:', error);
@@ -138,6 +139,7 @@ self.onmessage = function(e) {
                     skippedCount
                 });
             } catch (error) {
+                console.error(`Worker ${workerId} calculateDirect failed:`, error);
                 self.postMessage({ type: 'error', message: error.message });
             }
             break;
@@ -168,60 +170,60 @@ function calculateDirectForce(startIndex, endIndex, particleType) {
     for (let i = startIndex; i < endIndex; i++) {
         let totalForceX = 0;
         let totalForceY = 0;
-        
+        const view1x = loadAtomicFloat(view1.x, i);
+        const view1y = loadAtomicFloat(view1.y, i);
+
         for (let type2 = 0; type2 < particleTypes; type2++) {
             const view2 = particleViews[type2];
             const force = forceMatrix[particleType][type2];
             const maxDistance = distanceMatrix[particleType][type2];
-            
-            if (force === 0 || maxDistance === 0) {
+            if (maxDistance === 0) {
                 skippedCount++;
                 continue;
             }
-            
+            const maxDistSquared = maxDistance * maxDistance;
+            let fx = 0, fy = 0;
+
             for (let j = 0; j < particleCounts[type2]; j++) {
                 if (particleType === type2 && i === j) continue;
-                
-                let dx = loadAtomicFloat(view2.x, j) - loadAtomicFloat(view1.x, i);
-                let dy = loadAtomicFloat(view2.y, j) - loadAtomicFloat(view1.y, i);
-                
+
+                let dx = loadAtomicFloat(view2.x, j) - view1x;
+                let dy = loadAtomicFloat(view2.y, j) - view1y;
+
                 if (isThrough) {
                     if (Math.abs(dx) > canvas.width / 2) {
-                        dx = dx - Math.sign(dx) * canvas.width;
+                        dx -= Math.sign(dx) * canvas.width;
                     }
                     if (Math.abs(dy) > canvas.height / 2) {
-                        dy = dy - Math.sign(dy) * canvas.height;
+                        dy -= Math.sign(dy) * canvas.height;
                     }
                 }
 
                 const distSquared = dx * dx + dy * dy;
-                const maxDistSquared = maxDistance * maxDistance;
-                
-                if (distSquared < maxDistSquared && distSquared > 0) {
-                    const distance = Math.sqrt(distSquared);
-                    const normalizedDist = distance / maxDistance;
-                    const forceMagnitude = calculateForce(normalizedDist, force);
-                    
-                    if (forceMagnitude !== 0) {
-                        const fx = (forceMagnitude * dx) / distance;
-                        const fy = (forceMagnitude * dy) / distance;
-                        totalForceX += fx * 10;
-                        totalForceY += fy * 10;
-                        calcCount++;
-                    }
-                }
+                if (distSquared >= maxDistSquared || distSquared === 0) continue;
+
+                const distance = Math.sqrt(distSquared);
+                const normalizedDist = distance / maxDistance;
+                const forceMagnitude = calculateForce(normalizedDist, force);
+
+                if (forceMagnitude === 0) continue;
+                fx += forceMagnitude * dx / distance;
+                fy += forceMagnitude * dy / distance;
+                calcCount++;
             }
+            totalForceX += fx * 10 * maxDistance;
+            totalForceY += fy * 10 * maxDistance;
         }
-        
+
         // 更新速度
         const currentVx = loadAtomicFloat(view1.vx, i);
         const currentVy = loadAtomicFloat(view1.vy, i);
-        storeAtomicFloat(view1.vx, i, currentVx + totalForceX * currentDt);
-        storeAtomicFloat(view1.vy, i, currentVy + totalForceY * currentDt);
+        storeAtomicFloat(view1.vx, i, currentVx * frictionFactor + totalForceX * currentDt);
+        storeAtomicFloat(view1.vy, i, currentVy * frictionFactor + totalForceY * currentDt);
         onceConsole('calculateDirect_totalForce', `Worker ${workerId} updated particle ${i} of type ${particleType} with forces (${currentVx + totalForceX * currentDt}, ${currentVy + totalForceY * currentDt}) at ${performance.now()}`);
         onceConsole('calculateDirect_totalForce_check', `Worker ${workerId} particle ${i} of type ${particleType} has total forces (${loadAtomicFloat(view1.vx, i)}, ${loadAtomicFloat(view1.vy, i)}) at ${performance.now()}`);
     }
-    
+
     return { calcCount, skippedCount };
 }
 
@@ -267,4 +269,4 @@ function updateParticlePositions(startIndex, endIndex, particleType, dt, frictio
         storeAtomicFloat(view.vx, i, vx);
         storeAtomicFloat(view.vy, i, vy);
     }
-} 
+}

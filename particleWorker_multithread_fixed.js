@@ -20,7 +20,9 @@ const sharedMemoryAPI = {
             y: loadAtomicFloat(view.y, index),
             vx: loadAtomicFloat(view.vx, index),
             vy: loadAtomicFloat(view.vy, index),
-            id: Atomics.load(view.id, index)
+            id: Atomics.load(view.id, index),
+            index: index,
+            type: type, 
         };
     },
 
@@ -47,7 +49,11 @@ self.onmessage = function(e) {
     switch (e.data.type) {
         // --初始化--
         case 'init':
-            
+            isInited = false;
+            if (isUpdating) {
+                setTimeout(() => self.onmessage({data: e.data}), 10);
+                return;
+            }
             canvas.width = e.data.canvasWidth; // 畫布寬度
             canvas.height = e.data.canvasHeight; // 畫布高度
             particleTypes = e.data.particleTypes; // 粒子類型數量
@@ -68,12 +74,16 @@ self.onmessage = function(e) {
                 isInited = true;
             }).catch(error => {
                 console.error('Failed to initialize multithreading system:', error);
-                isUsingMultithread = false;
                 self.postMessage({type: 'FailedMultithread', isUsingMultithread: false});
             });
             break;
         // --更改線程初始化--
         case 'changeThreadInit':
+            isInited = false;
+            if (isUpdating) {
+                setTimeout(() => self.onmessage({data: e.data}), 10);
+                return;
+            }
             canvas.width = e.data.canvasWidth; // 畫布寬度
             canvas.height = e.data.canvasHeight; // 畫布高度
             particleTypes = e.data.particleTypes; // 粒子類型數量
@@ -111,7 +121,7 @@ self.onmessage = function(e) {
                 return;
             }
             isThrough = e.data.isThrough; // 穿透模式
-            checkAllParticlesIfNaN('setThrough NaN detected');
+            //checkAllParticlesIfNaN('setThrough NaN detected');
             break;
 
         // --更新畫布大小--
@@ -129,8 +139,8 @@ self.onmessage = function(e) {
                 isRunnable = false; // 設置為不可運行
                 break; // 跳過
             }
-            checkAllParticlesIfNaN('update canvas size NaN detected');
-            checkIfParticleIsOutOfBounds(); // 檢查粒子是否超出邊界
+            //checkAllParticlesIfNaN('update canvas size NaN detected');
+            //checkIfParticleIsOutOfBounds(); // 檢查粒子是否超出邊界
             
             isRunnable = true; // 設置為可運行
             
@@ -160,9 +170,7 @@ self.onmessage = function(e) {
             // --遍歷所有粒子類型--
             for (let i = 0; i < particleTypes; i++) {
                 // --遍歷粒子組--
-                particleGroups[i].forEach(p => {
-                    p.color = particleColors[i]; // 更新粒子顏色
-                });
+                particleGroups[i].color = particleColors[i]; // 更新粒子顏色
             }
             break;
 
@@ -220,6 +228,7 @@ self.onmessage = function(e) {
             selectedParticleIndex = e.data.particleIndex; // 選中粒子索引
             selectedParticleType = e.data.particleType; // 選中粒子類型
             selectedParticleId = e.data.particleId; // 選中粒子
+            console.log('Selected Particle Updated:', selectedParticleIndex, selectedParticleType, selectedParticleId, performance.now());
             break;
 
         // --更新粒子影響半徑顯示--
@@ -259,7 +268,7 @@ self.onmessage = function(e) {
             break;
     }
 };
-
+let showtest = true;
 // =============== 更新循環 ===============
 // --主要更新循環函數--
 async function update() {
@@ -281,7 +290,7 @@ async function update() {
         await rule_direct_multithread(particleTypes);
         // 處理滑鼠互動
         if (isMouseActive) {
-            particleGroups.forEach(group => applyMouseForce(group));
+            applyMouseForce();
         }
 
         // 執行多線程位置更新
@@ -294,35 +303,12 @@ async function update() {
         performanceData.particleCollisionTime = performance.now() - particleCollisionStartTime;
 
         // 處理粒子影響範圍顯示
-        // Merge each key's arrays from all particleGroups into a single object
-        const mergedParticleArrays = Object.keys(particleGroups[0]).reduce((acc, key) => {
-            acc[key] = [];
-            for (let i = 0; i < particleGroups.length; i++) {
-                // Convert typed arrays to regular arrays before concatenation
-                acc[key] = acc[key].concat(Array.from(particleGroups[i][key]));
-            }
-            return acc;
-        }, {});
-
-        // Example: mergedParticleArrays.x is an array of all x values, etc.
-        particles = []; // You can reconstruct particle objects if needed
-        const len = mergedParticleArrays.x.length;
-        for (let i = 0; i < len; i++) {
-            particles.push({
-                x: mergedParticleArrays.x[i],
-                y: mergedParticleArrays.y[i],
-                vx: mergedParticleArrays.vx[i],
-                vy: mergedParticleArrays.vy[i],
-                id: mergedParticleArrays.id[i],
-                // add other keys if needed
-            });
-        }
-        particles.push({type: mergedParticleArrays.type}); // Add type if needed
-
         let nearbyParticlesList = [];
         if (selectedParticleId && enableParticleAffcetRadiusShow) {;
             let selectedParticle = sharedMemoryAPI.getParticle(selectedParticleType, selectedParticleIndex);
-            onceConsole('selectedParticle', 'Selected Particle:', selectedParticle, 'particles', particles, performance.now());
+
+            if (showtest) console.log('Selected Particle:', selectedParticle, "selectedParticleType", selectedParticleType, 'selectedParticleIndex', selectedParticleIndex, performance.now());
+            showtest = false;
 
             for (let i = 0; i < particleTypes; i++) {
                 if (RadiusShow[i]) {
@@ -350,14 +336,15 @@ async function update() {
                 }
             }
         }
+        else{
+            showtest = true;
+        }
 
         performanceData.totalTime = performance.now() - startTime;
         
         // 發送更新消息
         self.postMessage({ 
             type: 'update',
-            particles: particles,
-            particleGroups: particleGroups,
             performanceData: performanceData,
             nearbyParticlesList: nearbyParticlesList,
         });
@@ -418,24 +405,27 @@ function calculateFrictionFactor(dt, tHalf) {
 }
 
 // >>> 滑鼠交互處理 <<<
-function applyMouseForce(particleGroup) {
+function applyMouseForce() {
     // --遍歷粒子組中的每個粒子--
-    for (let i = 0; i < particleGroup.length; i++) {
-        const p = particleGroup[i]; // 粒子
-        // --計算滑鼠和粒子之間的距離--
-        const dx = mouseX - p.x; // 滑鼠和粒子X距離
-        const dy = mouseY - p.y; // 滑鼠和粒子Y距離
-        const distSquared = dx * dx + dy * dy; // 距離平方
-        // >>>應用力的計算和更新<<<
-        // --距離大於0--
-        if (distSquared > 0) {
-            const force = mouseForce / Math.max(1, Math.sqrt(distSquared)); // 力
-            p.vx += (force * dx) / frictionFactor; // 粒子X速度
-            p.vy += (force * dy) / frictionFactor; // 粒子Y速度
+    for (let type = 0; type < particleTypes; type++) {
+        for (let i = 0; i < particleCounts[type]; i++) {
+            const p = sharedMemoryAPI.getParticle(type, i); // 粒子
+            // --計算滑鼠和粒子之間的距離--
+            const dx = mouseX - p.x; // 滑鼠和粒子X距離
+            const dy = mouseY - p.y; // 滑鼠和粒子Y距離
+            const distSquared = dx * dx + dy * dy; // 距離平方
+            // >>>應用力的計算和更新<<<
+            // --距離大於0--
+            if (distSquared > 0) {
+                const force = mouseForce / Math.max(1, Math.sqrt(distSquared)); // 力
+                p.vx += (force * dx) / frictionFactor; // 粒子X速度
+                p.vy += (force * dy) / frictionFactor; // 粒子Y速度
+            }
+            sharedMemoryAPI.updateParticle(type, i, p);
         }
     }
 }
-
+/*
 // >>> 檢查粒子是否超出邊界 <<<
 function checkIfParticleIsOutOfBounds() {
     // --遍歷所有粒子類型--
@@ -460,7 +450,8 @@ function checkIfParticleIsOutOfBounds() {
         }
     }
 }
-
+*/
+/*
 function checkAllParticlesIfNaN(consoleMessage, ...otherArgs) {
     // --遍歷所有粒子類型--
     for (let type = 0; type < particleTypes; type++) {
@@ -484,26 +475,7 @@ function checkAllParticlesIfNaN(consoleMessage, ...otherArgs) {
         }
     }
 }
-
-// >>> 創建單個粒子 <<<
-function particle(x, y, c, type) {
-    const id = nextParticleId++; // 粒子ID
-    // --返回粒子對象--
-    return {
-        "id": id, // 粒子ID
-        "x": x, // 粒子X
-        "y": y, // 粒子Y
-        "vx": 0, // 粒子X速度
-        "vy": 0, // 粒子Y速度
-        "color": c, // 粒子顏色
-        "type": type // 粒子類型
-    };
-}
-
-
-
-
-
+*/
 // >>> 性能監控 <<<
 const performanceMonitor = {
     lastUpdate: performance.now(),
@@ -550,131 +522,112 @@ const performanceMonitor = {
 let restitution = 0.8;  // 能量損失係數 (0.8 = 保留80%能量)
 
 function particlesCollision(types) {
+    let particlesList = [];
     // >>> 粒子類型循環 <<<
     for (let type1 = 0; type1 < types; type1++) {
-        
-        // --優化循環起始--
-        for (let type2 = type1; type2 < types; type2++) {
-            
-            // --第一組粒子循環--
-            for (let i = 0; i < particleCounts[type1]; i++) {
-                const p1 = sharedMemoryAPI.getParticle(type1, i);
+        // --第一組粒子循環--
+        for (let i = 0; i < particleCounts[type1]; i++) {
+            const p1 = sharedMemoryAPI.getParticle(type1, i);
 
-                // --避免自我碰撞--
-                const startJ = (type1 === type2) ? i + 1 : 0;
+            // --避免自我碰撞--
+            const startJ = (type1 === type2) ? i + 1 : 0;
+            
+            // --第二組粒子循環--
+            let totalx = 0;
+            let totaly = 0;
+            for (let j = startJ; j < particleCounts[type2]; j++) {
+                const p2 = sharedMemoryAPI.getParticle(type2, j);
                 
-                // --第二組粒子循環--
-                for (let j = startJ; j < particleCounts[type2]; j++) {
-                    const p2 = sharedMemoryAPI.getParticle(type2, j);
-                    
-                    // >>> 距離計算 <<<
-                    // --基本距離--
-                    let dx = p2.x - p1.x;
-                    let dy = p2.y - p1.y;
-                    
-                    // --邊界穿越處理--
-                    if (isThrough) {
-                        if (Math.abs(dx) > canvas.width / 2) {
-                            dx = dx - Math.sign(dx) * canvas.width;
-                        }
-                        if (Math.abs(dy) > canvas.height / 2) {
-                            dy = dy - Math.sign(dy) * canvas.height;
-                        }
+                // >>> 距離計算 <<<
+                // --基本距離--
+                let dx = p2.x - p1.x;
+                let dy = p2.y - p1.y;
+                
+                // --邊界穿越處理--
+                if (isThrough) {
+                    if (Math.abs(dx) > canvas.width / 2) {
+                        dx = dx - Math.sign(dx) * canvas.width;
                     }
+                    if (Math.abs(dy) > canvas.height / 2) {
+                        dy = dy - Math.sign(dy) * canvas.height;
+                    }
+                }
+                
+                // --碰撞檢測--
+                const distSquared = dx * dx + dy * dy;
+                const minDist = 2 * ballRadius;
+                
+                // >>> 碰撞處理 <<<
+                if (distSquared < minDist * minDist) {
+                    const dist = Math.sqrt(distSquared);
                     
-                    // --碰撞檢測--
-                    const distSquared = dx * dx + dy * dy;
-                    const minDist = 2 * ballRadius;
+                    // --碰撞軸計算--
+                    const nx = dx / dist;
+                    const ny = dy / dist;
                     
-                    // >>> 碰撞處理 <<<
-                    if (distSquared < minDist * minDist) {
-                        const dist = Math.sqrt(distSquared);
+                    // --切向向量計算--
+                    const tx = -ny;
+                    const ty = nx;
+                    
+                    // --相對速度計算--
+                    const dvx = p2.vx - p1.vx;
+                    const dvy = p2.vy - p1.vy;
+                    
+                    // --速度投影--
+                    const normalVelocity = dvx * nx + dvy * ny;
+                    const tangentVelocity = dvx * tx + dvy * ty;
+                    
+                    // >>> 碰撞響應 <<<
+                    if (normalVelocity < 0) {
+                        // --衝量計算--
+                        const jn = -(1 + restitution) * normalVelocity / 2;
+                        const jt = -tangentVelocity * frictionFactor / 2;
                         
-                        // --碰撞軸計算--
-                        const nx = dx / dist;
-                        const ny = dy / dist;
-                        
-                        // --切向向量計算--
-                        const tx = -ny;
-                        const ty = nx;
-                        
-                        // --相對速度計算--
-                        const dvx = p2.vx - p1.vx;
-                        const dvy = p2.vy - p1.vy;
-                        
-                        // --速度投影--
-                        const normalVelocity = dvx * nx + dvy * ny;
-                        const tangentVelocity = dvx * tx + dvy * ty;
-                        
-                        // >>> 碰撞響應 <<<
-                        if (normalVelocity < 0) {
-                            // --衝量計算--
-                            const jn = -(1 + restitution) * normalVelocity / 2;
-                            const jt = -tangentVelocity * frictionFactor / 2;
+                        // --速度更新--
+                        p1.vx -= (jn * nx + jt * tx);
+                        p1.vy -= (jn * ny + jt * ty);
+                        performanceData.particleCollisionCountsTimes++; // 粒子碰撞次數
+                        // --重疊修正--
+                        const overlap = minDist - dist;
+                        if (overlap > 0) {
+                            const correction = (overlap / 2) * 1.05;
+                            totalx -= nx * correction;
+                            totaly -= ny * correction;
                             
-                            // --速度更新--
-                            p1.vx -= (jn * nx + jt * tx);
-                            p1.vy -= (jn * ny + jt * ty);
-                            p2.vx += (jn * nx + jt * tx);
-                            p2.vy += (jn * ny + jt * ty);
-                            performanceData.particleCollisionCountsTimes++; // 粒子碰撞次數
-                            // --重疊修正--
-                            const overlap = minDist - dist;
-                            if (overlap > 0) {
-                                const correction = (overlap / 2) * 1.05;
-                                p1.x -= nx * correction;
-                                p1.y -= ny * correction;
-                                p2.x += nx * correction;
-                                p2.y += ny * correction;
-                                
-                                // >>> 邊界檢查和修正 <<<
-                                // --第一個粒子--
-                                if (isThrough) {
-                                    // --環繞處理--
-                                    p1.x = ((p1.x % canvas.width) + canvas.width) % canvas.width;
-                                    p1.y = ((p1.y % canvas.height) + canvas.height) % canvas.height;
-                                    p2.x = ((p2.x % canvas.width) + canvas.width) % canvas.width;
-                                    p2.y = ((p2.y % canvas.height) + canvas.height) % canvas.height;
-                                } else {
-                                    // --邊界彈回--
-                                    if (p1.x < ballRadius) {
-                                        p1.x = ballRadius;
-                                        p1.vx = Math.abs(p1.vx);
-                                    } else if (p1.x > canvas.width - ballRadius) {
-                                        p1.x = canvas.width - ballRadius;
-                                        p1.vx = -Math.abs(p1.vx);
-                                    }
-                                    if (p1.y < ballRadius) {
-                                        p1.y = ballRadius;
-                                        p1.vy = Math.abs(p1.vy);
-                                    } else if (p1.y > canvas.height - ballRadius) {
-                                        p1.y = canvas.height - ballRadius;
-                                        p1.vy = -Math.abs(p1.vy);
-                                    }
-                                    
-                                    // --第二個粒子--
-                                    if (p2.x < ballRadius) {
-                                        p2.x = ballRadius;
-                                        p2.vx = Math.abs(p2.vx);
-                                    } else if (p2.x > canvas.width - ballRadius) {
-                                        p2.x = canvas.width - ballRadius;
-                                        p2.vx = -Math.abs(p2.vx);
-                                    }
-                                    if (p2.y < ballRadius) {
-                                        p2.y = ballRadius;
-                                        p2.vy = Math.abs(p2.vy);
-                                    } else if (p2.y > canvas.height - ballRadius) {
-                                        p2.y = canvas.height - ballRadius;
-                                        p2.vy = -Math.abs(p2.vy);
-                                    }
-                                }
-                            }
+                            
                         }
                     }
                 }
             }
+            // >>> 邊界檢查和修正 <<<
+            // --第一個粒子--
+            if (isThrough) {
+                // --環繞處理--
+                p1.x = ((p1.x % canvas.width) + canvas.width) % canvas.width;
+                p1.y = ((p1.y % canvas.height) + canvas.height) % canvas.height;
+            } else {
+                // --邊界彈回--
+                if (p1.x < ballRadius) {
+                    p1.x = ballRadius;
+                    p1.vx = Math.abs(p1.vx);
+                } else if (p1.x > canvas.width - ballRadius) {
+                    p1.x = canvas.width - ballRadius;
+                    p1.vx = -Math.abs(p1.vx);
+                }
+                if (p1.y < ballRadius) {
+                    p1.y = ballRadius;
+                    p1.vy = Math.abs(p1.vy);
+                } else if (p1.y > canvas.height - ballRadius) {
+                    p1.y = canvas.height - ballRadius;
+                    p1.vy = -Math.abs(p1.vy);
+                }
+            }
+            particlesList.push(p1)
         }
     }
+    particlesList.forEach((p) => {
+        sharedMemoryAPI.updateParticle(p.type, p.index, p);
+    });
 }
 
 // =============== 多線程類別定義 ===============
@@ -698,6 +651,10 @@ async function initializeMultithreadSystem() {
 // >>> 多線程初始化 <<<
 async function initializeWorkerPool() {
     try {
+        if (workerPool && workerPool.length > 0) {
+            // 如果工作線程池已經存在，則終止它
+            await terminateWorkerPool();
+        }
         const numWorkers = navigator.hardwareConcurrency - 1 || 3; // 保留一個核心給主線程
         workerPool = new Array(numWorkers);
         
@@ -743,10 +700,6 @@ async function initializeWorker(workerId) {
                         worker.terminate();
                         reject(new Error(e.data.error || `工作線程 ${workerId} 初始化失敗`));
                     }
-                } else if (e.data.type === 'calculateComplete') {
-                    // 更新性能數據
-                    performanceData.gAffectCalcCountsTimes += e.data.calcCount || 0;
-                    performanceData.particleSkippedCountsTimes += e.data.skippedCount || 0;
                 } else if (e.data.type === 'error') {
                     console.error(`工作線程 ${workerId} 錯誤:`, e.data.message);
                 }
@@ -781,16 +734,15 @@ async function initializeWorker(workerId) {
 }
 
 // --終止工作線程池--
-function terminateWorkerPool() {
+async function terminateWorkerPool() {
     if (workerPool) {
-        workerPool.forEach((worker, index) => {
+        await Promise.all(workerPool.map((worker, index) => {
             if (worker) {
                 worker.terminate();
-                console.log(`終止工作線程 ${index}`);
+                console.log(`終止工作線程 ${index}, ${performance.now()}`);
             }
-        });
+        }));
         workerPool = [];
-        isUsingMultithread = false;
     }
 }
 
@@ -823,24 +775,20 @@ async function rule_direct_multithread(types) {
     try {
         const promises = [];
         const promiseStatus = []; // 追蹤 Promise 狀態
-
-        for (let i = 0; i < types; i++) {
-            const particleCount = particleCounts[i];
-            const workersNeeded = Math.min(workerPool.length, Math.ceil(particleCount / minParticlesPerWorker));
-            onceConsole('rule_direct_multithread', `粒子類型 ${i} 需要 ${workersNeeded} 個工作線程處理 ${particleCount} 個粒子`, performance.now(), '\n workerPool:', workerPool, '\n particleGroups:', particleGroups);
-            if (workersNeeded > 0 && particleCount > 0) {
-                const particlesPerWorker = Math.ceil(particleCount / workersNeeded);
+        const particleCount = particleCounts.reduce((sum, count) => sum + count, 0); // 總粒子數量
+        const workersNeeded = Math.min(workerPool.length, Math.ceil(particleCount / minParticlesPerWorker));
+        onceConsole('rule_direct_multithread', `粒子需要 ${workersNeeded} 個工作線程處理 ${particleCount} 個粒子`, performance.now(), '\n workerPool:', workerPool, '\n particleGroups:', particleGroups);
+        const particlesPerWorker = Math.ceil(particleCount / workersNeeded);
+        if (workersNeeded > 0 && particleCount > 0) {
+            for (let i = 0; i < types; i++) {
                 let workerSelected = 0; // 是否選擇了工作線程
                 for (let j = 0; j < workerPool.length; j++) {
-                    if (workerSelected >= workersNeeded) {
-                        // 如果工作線程數量超過需要的數量，則跳過
-                        break;   
-                    };
                     if (workerPool[j].busy) {
                         continue;
                     }
-                    const startIndex = (workerSelected + 1) * particlesPerWorker;
-                    const endIndex = Math.min(startIndex + particlesPerWorker, particleCount);
+                    const startIndex = workerSelected * particlesPerWorker;
+                    if (startIndex >= particleCounts[i]) break;
+                    const endIndex = Math.min(startIndex + particlesPerWorker, particleCounts[i]);
                     
                     if (startIndex < endIndex) {
                         workerPool[j].busy = true; // 標記工作線程為忙碌
@@ -848,6 +796,7 @@ async function rule_direct_multithread(types) {
                         const promiseInfo = {
                             particleType: i,
                             workerId: j,
+                            worker: workerPool[j],
                             startIndex,
                             endIndex,
                             status: 'pending'
@@ -855,10 +804,11 @@ async function rule_direct_multithread(types) {
                         promiseStatus.push(promiseInfo);
 
                         promises.push(
+                            onceConsole("new Promise", `>>>>>>>>>>>>>>>>>new Promise<<<<<<<<<<<<<<<<<<<`, performance.now()),
                             new Promise((resolve, reject) => {
                                 const worker = workerPool[j];
                                 const promiseIndex = promiseStatus.length - 1;
-
+                                onceConsole('rule_direct_multithread_postMessage', `multithread向worker ${j} 發送處理粒子類型 ${i}`, performance.now());
                                 worker.postMessage({
                                     type: 'calculateDirect',
                                     startIndex,
@@ -874,6 +824,7 @@ async function rule_direct_multithread(types) {
                                 });
                                 
                                 worker.onmessage = (e) => {
+                                    onceConsole('rule_direct_multithread_onmessage', `>>>>>multithread worker ${j} 收到消息<<<<<<<<<`, performance.now(), e.data);
                                     if (e.data.type === 'calculateDirectComplete') {
                                         promiseStatus[promiseIndex].status = 'fulfilled';
                                         performanceData.gAffectCalcCountsTimes += e.data.calcCount;
@@ -894,15 +845,16 @@ async function rule_direct_multithread(types) {
         }
 
         // 設定超時檢查
-        const timeout = setTimeout(() => {
+        const timeout = setInterval(() => {
             const pendingPromises = promiseStatus.filter(p => p.status === 'pending');
             if (pendingPromises.length > 0) {
-                console.log('仍在等待的 Promise:', pendingPromises,'\n all promises:', promiseStatus);
+                console.log('仍在等待的 Promise:', pendingPromises,'\n all promises:', promiseStatus, performance.now());
             }
         }, 5000); // 5秒後檢查
 
         await Promise.all(promises);
-        clearTimeout(timeout);
+        onceConsole('rule_direct_multithread_allPromises', `>>>>>>>所有 Promise 已完成<<<<<<<<`, performance.now());
+        clearInterval(timeout);
 
     } catch (error) {
         console.error('Error in rule_direct_multithread:', error);
@@ -920,24 +872,20 @@ async function rule_update_multithread(types) {
     try {
         const promises = [];
         const promiseStatus = []; // 追蹤 Promise 狀態
-
-        for (let i = 0; i < types; i++) {
-            const particleCount = particleCounts[i];
-            const workersNeeded = Math.min(workerPool.length, Math.ceil(particleCount / minParticlesPerWorker));
-            onceConsole('rule_update_multithread_check', `rule_update: 粒子類型 ${i} 需要 ${workersNeeded} 個工作線程處理 ${particleCount} 個粒子`, performance.now(), '\n workerPool:', workerPool, '\n particleGroups:', particleGroups);
-            if (workersNeeded > 0 && particleCount > 0) {
-                const particlesPerWorker = Math.ceil(particleCount / workersNeeded);
+        const particleCount = particleCounts.reduce((sum, count) => sum + count, 0); // 總粒子數量
+        const workersNeeded = Math.min(workerPool.length, Math.ceil(particleCount / minParticlesPerWorker));
+        onceConsole('rule_direct_multithread', `粒子需要 ${workersNeeded} 個工作線程處理 ${particleCount} 個粒子`, performance.now(), '\n workerPool:', workerPool, '\n particleGroups:', particleGroups);
+        const particlesPerWorker = Math.ceil(particleCount / workersNeeded);
+        if (workersNeeded > 0 && particleCount > 0) {
+            for (let i = 0; i < types; i++) {
                 let workerSelected = 0;
                 for (let j = 0; j < workerPool.length; j++) {
-                    if (workerSelected >= workersNeeded) {
-
-                        break;
-                    }
                     if (workerPool[j].busy) {
                         continue;
                     }
-                    const startIndex = (workerSelected + 1) * particlesPerWorker;
-                    const endIndex = Math.min(startIndex + particlesPerWorker, particleCount);
+                    const startIndex = workerSelected * particlesPerWorker;
+                    if (startIndex >= particleCounts[i]) break
+                    const endIndex = Math.min(startIndex + particlesPerWorker, particleCounts[i]);
 
                     if (startIndex < endIndex) {
                         workerPool[j].busy = true;
@@ -991,7 +939,7 @@ async function rule_update_multithread(types) {
         }
 
         // 設定超時檢查
-        const timeout = setTimeout(() => {
+        const timeout = setInterval(() => {
             const pendingPromises = promiseStatus.filter(p => p.status === 'pending');
             if (pendingPromises.length > 0) {
                 console.log('仍在等待的 Promise:', pendingPromises, '\n all promises:', promiseStatus);
@@ -999,7 +947,7 @@ async function rule_update_multithread(types) {
         }, 5000);
 
         await Promise.all(promises);
-        clearTimeout(timeout);
+        clearInterval(timeout);
 
     } catch (error) {
         console.error('Error in rule_update_multithread:', error);
@@ -1064,7 +1012,6 @@ let MAX_WORKERS = navigator.hardwareConcurrency-3 || 4;  // 最大工作線程�
 let minParticlesPerWorker = 100;  // 每個工作線程的最小粒子數
 
 // >>> 共享內存變數 <<<
-let particleData = null;              // 粒子數據
 let startIndex = 0;
 let endIndex = 0;
 let particleType = 0;
@@ -1072,6 +1019,6 @@ let particleType = 0;
 // =============== 常量定義 ===============
 // >>> 時間和物理常量 <<<
 let DEFAULT_DT = 1/144;        // 默認時間步長
-let DEFAULT_T_HALF = 0.040;    // 默認半衰期
+let DEFAULT_T_HALF = 0.020;    // 默認半衰期
 let currentTHalf = DEFAULT_T_HALF  // 當前半衰期
 let currentDt = DEFAULT_DT      // 當前時間步長
