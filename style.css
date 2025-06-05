@@ -341,7 +341,7 @@ input:checked + .slider:before {
 
 .matrix-container input[type="number"] {
     width: 100%;
-    min-width: 10px;
+    min-width: 50px;
     padding: 2px;
     border: none;
     border-radius: 2px;

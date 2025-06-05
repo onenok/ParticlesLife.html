@@ -21,8 +21,22 @@ const sharedMemoryAPI = {
             y: loadAtomicFloat(view.y, index),
             vx: loadAtomicFloat(view.vx, index),
             vy: loadAtomicFloat(view.vy, index),
-            id: Atomics.load(view.id, index)
+            id: Atomics.load(view.id, index),
+            type: type,
+            index: index,
         };
+    },
+    getParticleById(id) {
+        let particleCumulativeCount = 0;
+        for (let type = 0; type < particleTypes; type++) {
+            const particleCount = particleCounts[type];
+            if (particleCumulativeCount + particleCount > id) {
+                return this.getParticle(type, id - particleCumulativeCount);
+            }
+            particleCumulativeCount += particleCount;
+        }
+        console.warn(`Particle with id ${id} not found`);
+        return null;
     },
 
     updateParticle(type, index, updates) {
@@ -114,13 +128,12 @@ self.onmessage = function(e) {
                 self.postMessage({ type: 'initComplete', status: 'failed', error: error.message });
             }
             break;
-        case 'calculateDirect':
-            onceConsole('calculateDirectOnMessage', `Worker ${workerId} received calculateDirect message ${performance.now()}`);
+        case 'calculate_Force':
+            onceConsole('calculate_ForceOnMessage', `Worker ${workerId} received calculate_Force message ${performance.now()}`);
             try {
-                const { startIndex, endIndex, particleType, forceMatrix: newForceMatrix, distanceMatrix: newDistanceMatrix, isThrough: newIsThrough, currentDt: newCurrentDt, frictionFactor: newFrictionFactor } = e.data;
+                const { startId, endId, forceMatrix: newForceMatrix, distanceMatrix: newDistanceMatrix, isThrough: newIsThrough, currentDt: newCurrentDt, frictionFactor: newFrictionFactor } = e.data;
                 canvas.width = e.data.canvasWidth;
                 canvas.height = e.data.canvasHeight;
-                onceConsole(`particleType`, particleType);
                 // 更新計算參數
                 forceMatrix = newForceMatrix;
                 distanceMatrix = newDistanceMatrix;
@@ -129,17 +142,17 @@ self.onmessage = function(e) {
                 frictionFactor = newFrictionFactor;
                 
                 // 執行直接計算
-                onceConsole('calculateDirect', `Worker ${workerId} calculating forces for particle type ${particleType} from index ${startIndex} to ${endIndex} at ${performance.now()}`);
-                const { calcCount, skippedCount } = calculateDirectForce(startIndex, endIndex, particleType);
-                //console.debug("calculateDirectComplete");
+                onceConsole('calculate_Force', `Worker ${workerId} calculating forces for particle type from id ${startId} to ${endId} at ${performance.now()}`);
+                const { calcCount, skippedCount } = calculate_ForceForce(startId, endId);
+                //console.debug("calculate_ForceComplete");
             
                 self.postMessage({
-                    type: 'calculateDirectComplete',
+                    type: 'calculate_ForceComplete',
                     calcCount,
                     skippedCount
                 });
             } catch (error) {
-                console.error(`Worker ${workerId} calculateDirect failed:`, error);
+                console.error(`Worker ${workerId} calculate_Force failed:`, error);
                 self.postMessage({ type: 'error', message: error.message });
             }
             break;
@@ -149,34 +162,47 @@ self.onmessage = function(e) {
             canvas.width = e.data.canvasWidth;
             canvas.height = e.data.canvasHeight;
             try {
-                const { startIndex, endIndex, particleType, currentDt, frictionFactor, isThrough } = e.data;
-                updateParticlePositions(startIndex, endIndex, particleType, currentDt, frictionFactor, isThrough);
-                onceConsole('positionUpdated', `Worker ${workerId} updated positions for particle type ${particleType} from index ${startIndex} to ${endIndex} at ${performance.now()}`);
+                const { startId, endId, currentDt, frictionFactor, isThrough } = e.data;
+                updateParticlePositions(startId, endId, currentDt, frictionFactor, isThrough);
+                onceConsole('positionUpdated', `Worker ${workerId} updated positions for particle type from id ${startId} to ${endId} at ${performance.now()}`);
                 self.postMessage({ type: 'positionUpdateComplete' });
             } catch (error) {
+                console.error(`Worker ${workerId} positionUpdate failed:`, error);
+                self.postMessage({ type: 'error', message: error.message });
+            }
+            break;
+        case 'particlesCollision':
+            onceConsole('particlesCollisionOnMessage', `Worker ${workerId} received particlesCollision message ${performance.now()}`);
+            try {
+                canvas.width = e.data.canvasWidth;
+                canvas.height = e.data.canvasHeight;
+                const { startId, endId, isThrough, frictionFactor, restitution } = e.data;
+                const { particlesList, particleCollisionCountsTimes } = particlesCollision(startId, endId, frictionFactor, isThrough, restitution);
+                onceConsole('particlesCollisionComplete', `Worker ${workerId} completed particlesCollision for particle type from id ${startId} to ${endId} at ${performance.now()}`);
+                self.postMessage({ type: 'particlesCollisionComplete', particlesList, particleCollisionCountsTimes });
+            } catch (error) {
+                console.error(`Worker ${workerId} particlesCollision failed:`, error);
                 self.postMessage({ type: 'error', message: error.message });
             }
             break;
     }
 };
 // =============== 計算函數 ===============
-function calculateDirectForce(startIndex, endIndex, particleType) {
-    onceConsole('calculateDirectForce', `Worker ${workerId} calculating forces at ${performance.now()}`);
+function calculate_ForceForce(startId, endId) {
+    onceConsole('calculate_ForceForce', `Worker ${workerId} calculating forces at ${performance.now()}`);
     let calcCount = 0;
     let skippedCount = 0;
-    const view1 = particleViews[particleType];
-    onceConsole('calculateDirectForce_check', `Worker ${workerId} calculating forces for particle type ${particleType} from index ${startIndex} to ${endIndex}\n particleViews is ${particleViews}, particleType is ${particleType}, particleCounts is ${particleCounts[particleType]}, forceMatrix is ${forceMatrix}, distanceMatrix is ${distanceMatrix}`);
+    onceConsole('calculate_ForceForce_check', `Worker ${workerId} calculating forces for particle from id ${startId} to ${endId}\n particleViews is ${particleViews}, forceMatrix is ${forceMatrix}, distanceMatrix is ${distanceMatrix}`);
     // 檢查參數有效性
-    for (let i = startIndex; i < endIndex; i++) {
+    for (let id = startId; id < endId; id++) {
         let totalForceX = 0;
         let totalForceY = 0;
-        const view1x = loadAtomicFloat(view1.x, i);
-        const view1y = loadAtomicFloat(view1.y, i);
-
+        let p = sharedMemoryAPI.getParticleById(id);
         for (let type2 = 0; type2 < particleTypes; type2++) {
+            calcCount+=particleCounts[type2];
             const view2 = particleViews[type2];
-            const force = forceMatrix[particleType][type2];
-            const maxDistance = distanceMatrix[particleType][type2];
+            const force = forceMatrix[p.type][type2];
+            const maxDistance = distanceMatrix[p.type][type2];
             if (maxDistance === 0) {
                 skippedCount++;
                 continue;
@@ -185,10 +211,10 @@ function calculateDirectForce(startIndex, endIndex, particleType) {
             let fx = 0, fy = 0;
 
             for (let j = 0; j < particleCounts[type2]; j++) {
-                if (particleType === type2 && i === j) continue;
+                if (p.type === type2 && p.index === j) continue;
 
-                let dx = loadAtomicFloat(view2.x, j) - view1x;
-                let dy = loadAtomicFloat(view2.y, j) - view1y;
+                let dx = loadAtomicFloat(view2.x, j) - p.x;
+                let dy = loadAtomicFloat(view2.y, j) - p.y;
 
                 if (isThrough) {
                     if (Math.abs(dx) > canvas.width / 2) {
@@ -200,73 +226,178 @@ function calculateDirectForce(startIndex, endIndex, particleType) {
                 }
 
                 const distSquared = dx * dx + dy * dy;
-                if (distSquared >= maxDistSquared || distSquared === 0) continue;
+                if (distSquared >= maxDistSquared || distSquared === 0) {
+                    skippedCount++;
+                    continue;
+                }
 
                 const distance = Math.sqrt(distSquared);
                 const normalizedDist = distance / maxDistance;
                 const forceMagnitude = calculateForce(normalizedDist, force);
 
-                if (forceMagnitude === 0) continue;
+                if (forceMagnitude === 0) {
+                    skippedCount++;
+                    continue;
+                }
                 fx += forceMagnitude * dx / distance;
                 fy += forceMagnitude * dy / distance;
-                calcCount++;
             }
             totalForceX += fx * 10 * maxDistance;
             totalForceY += fy * 10 * maxDistance;
         }
 
         // 更新速度
-        const currentVx = loadAtomicFloat(view1.vx, i);
-        const currentVy = loadAtomicFloat(view1.vy, i);
-        storeAtomicFloat(view1.vx, i, currentVx * frictionFactor + totalForceX * currentDt);
-        storeAtomicFloat(view1.vy, i, currentVy * frictionFactor + totalForceY * currentDt);
-        onceConsole('calculateDirect_totalForce', `Worker ${workerId} updated particle ${i} of type ${particleType} with forces (${currentVx + totalForceX * currentDt}, ${currentVy + totalForceY * currentDt}) at ${performance.now()}`);
-        onceConsole('calculateDirect_totalForce_check', `Worker ${workerId} particle ${i} of type ${particleType} has total forces (${loadAtomicFloat(view1.vx, i)}, ${loadAtomicFloat(view1.vy, i)}) at ${performance.now()}`);
+        storeAtomicFloat(particleViews[p.type].vx, p.index, p.vx * frictionFactor + totalForceX * currentDt);
+        storeAtomicFloat(particleViews[p.type].vy, p.index, p.vy * frictionFactor + totalForceY * currentDt);
+        onceConsole('calculate_Force_totalForce', `Worker ${workerId} updated particle ${id} of type ${p.type} with forces (${p.vx + totalForceX * currentDt}, ${p.vy + totalForceY * currentDt}) at ${performance.now()}`);
+        onceConsole('calculate_Force_totalForce_check', `Worker ${workerId} particle ${id} of type ${p.type} has total forces (${loadAtomicFloat(particleViews[p.type].vx, p.index)}, ${loadAtomicFloat(particleViews[p.type].vy, p.index)}) at ${performance.now()}`);
     }
 
     return { calcCount, skippedCount };
 }
 
-function updateParticlePositions(startIndex, endIndex, particleType, dt, frictionFactor, isThrough) {
-    onceConsole('updateParticlePositions_start', `UPDATEING positions Worker ${workerId}  for particle type ${particleType} from index ${startIndex} to ${endIndex} at ${performance.now()}`);
-    const view = particleViews[particleType];
-    
-    for (let i = startIndex; i < endIndex; i++) {
+function updateParticlePositions(startId, endId, dt, frictionFactor, isThrough) {
+    onceConsole('updateParticlePositions_start', `UPDATEING positions Worker ${workerId} from id ${startId} to ${endId} at ${performance.now()}`);
+    for (let id = startId; id < endId; id++) {
         // 讀取當前位置和速度
-        let x = loadAtomicFloat(view.x, i);
-        let y = loadAtomicFloat(view.y, i);
-        let vx = loadAtomicFloat(view.vx, i) * frictionFactor;
-        let vy = loadAtomicFloat(view.vy, i) * frictionFactor;
-        onceConsole('updateParticlePositions_read', `Worker ${workerId} read particle ${i} of type ${particleType} with position (${x}, ${y}) and velocity (${vx}, ${vy}) at ${performance.now()}`);
+        let p = sharedMemoryAPI.getParticleById(id);
+        p.vx *= frictionFactor;
+        p.vy *= frictionFactor;
+        onceConsole('updateParticlePositions_read', `Worker ${workerId} read particle ${id} of type ${p.type} with position (${p.x}, ${p.y}) and velocity (${p.vx}, ${p.vy}) at ${performance.now()}`);
         // 更新位置
-        x += vx * dt;
-        y += vy * dt;
-        
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+
         // 邊界處理
         if (isThrough) {
-            x = ((x % canvas.width) + canvas.width) % canvas.width;
-            y = ((y % canvas.height) + canvas.height) % canvas.height;
+            p.x = ((p.x % canvas.width) + canvas.width) % canvas.width;
+            p.y = ((p.y % canvas.height) + canvas.height) % canvas.height;
         } else {
-            if (x < 0) {
-                x = 0;
-                vx = Math.abs(vx);
-            } else if (x > canvas.width) {
-                x = canvas.width;
-                vx = -Math.abs(vx);
+            if (p.x < 0) {
+                p.x = 0;
+                p.vx = Math.abs(p.vx);
+            } else if (p.x > canvas.width) {
+                p.x = canvas.width;
+                p.vx = -Math.abs(p.vx);
             }
-            if (y < 0) {
-                y = 0;
-                vy = Math.abs(vy);
-            } else if (y > canvas.height) {
-                y = canvas.height;
-                vy = -Math.abs(vy);
+            if (p.y < 0) {
+                p.y = 0;
+                p.vy = Math.abs(p.vy);
+            } else if (p.y > canvas.height) {
+                p.y = canvas.height;
+                p.vy = -Math.abs(p.vy);
             }
         }
         
         // 存儲更新後的位置和速度
-        storeAtomicFloat(view.x, i, x);
-        storeAtomicFloat(view.y, i, y);
-        storeAtomicFloat(view.vx, i, vx);
-        storeAtomicFloat(view.vy, i, vy);
+        sharedMemoryAPI.updateParticle(p.type, p.index, p);
     }
+}
+function particlesCollision(startId, endId, frictionFactor, isThrough, restitution) {
+    let particleCollisionCountsTimes = 0;
+    let particlesList = [];
+    onceConsole('particlesCollision_start', `particlesCollision Worker ${workerId} from id ${startId} to ${endId} at ${performance.now()}`);
+    for (let id = startId; id < endId; id++) {
+        // 讀取當前位置和速度
+        let p = sharedMemoryAPI.getParticleById(id);
+        // >>> 粒子類型循環 <<<
+        for (let type2 = 0; type2 < particleTypes; type2++) {
+            // --避免自我碰撞--
+            
+            // --第二組粒子循環--
+            let totalx = 0;
+            let totaly = 0;
+            particleCollisionCountsTimes += particleCounts[type2];
+            for (let j = 0; j < particleCounts[type2]; j++) {
+                if (p.type === type2 && p.index === j) continue; // 跳過自身
+                const p2 = sharedMemoryAPI.getParticle(type2, j);
+                
+                // >>> 距離計算 <<<
+                // --基本距離--
+                let dx = p2.x - p.x;
+                let dy = p2.y - p.y;
+                
+                // --邊界穿越處理--
+                if (isThrough) {
+                    if (Math.abs(dx) > canvas.width / 2) {
+                        dx = dx - Math.sign(dx) * canvas.width;
+                    }
+                    if (Math.abs(dy) > canvas.height / 2) {
+                        dy = dy - Math.sign(dy) * canvas.height;
+                    }
+                }
+                
+                // --碰撞檢測--
+                const distSquared = dx * dx + dy * dy;
+                const minDist = 2 * ballRadius;
+                
+                // >>> 碰撞處理 <<<
+                if (distSquared < minDist * minDist) {
+                    const dist = Math.sqrt(distSquared);
+                    
+                    // --碰撞軸計算--
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    
+                    // --切向向量計算--
+                    const tx = -ny;
+                    const ty = nx;
+                    
+                    // --相對速度計算--
+                    const dvx = p2.vx - p.vx;
+                    const dvy = p2.vy - p.vy;
+                    
+                    // --速度投影--
+                    const normalVelocity = dvx * nx + dvy * ny;
+                    const tangentVelocity = dvx * tx + dvy * ty;
+                    
+                    // >>> 碰撞響應 <<<
+                    if (normalVelocity < 0) {
+                        // --衝量計算--
+                        const jn = -(1 + restitution) * normalVelocity / 2;
+                        const jt = -tangentVelocity * frictionFactor / 2;
+                        
+                        // --速度更新--
+                        p.vx -= (jn * nx + jt * tx);
+                        p.vy -= (jn * ny + jt * ty);
+                        particleCollisionCountsTimes++; // 粒子碰撞次數
+                        // --重疊修正--
+                        const overlap = minDist - dist;
+                        if (overlap > 0) {
+                            const correction = (overlap / 2) * 1.05;
+                            totalx -= nx * correction;
+                            totaly -= ny * correction;
+                            
+                            
+                        }
+                    }
+                }
+            }
+            // >>> 邊界檢查和修正 <<<
+            // --第一個粒子--
+            if (isThrough) {
+                // --環繞處理--
+                p.x = ((p.x % canvas.width) + canvas.width) % canvas.width;
+                p.y = ((p.y % canvas.height) + canvas.height) % canvas.height;
+            } else {
+                // --邊界彈回--
+                if (p.x < ballRadius) {
+                    p.x = ballRadius;
+                    p.vx = Math.abs(p.vx);
+                } else if (p.x > canvas.width - ballRadius) {
+                    p.x = canvas.width - ballRadius;
+                    p.vx = -Math.abs(p.vx);
+                }
+                if (p.y < ballRadius) {
+                    p.y = ballRadius;
+                    p.vy = Math.abs(p.vy);
+                } else if (p.y > canvas.height - ballRadius) {
+                    p.y = canvas.height - ballRadius;
+                    p.vy = -Math.abs(p.vy);
+                }
+            }
+            particlesList.push(p)
+        }
+    }
+    return {particlesList, particleCollisionCountsTimes}
 }

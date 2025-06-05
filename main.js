@@ -25,6 +25,19 @@ let worker = new Worker('particleWorker_multithread_fixed.js');
 // 用戶可控制數據的初始化
 const gameState = {
     // 粒子系統基本設置
+    distRandMax: null,
+    distMin: 0,
+    forceMax: 1,
+    forceMin: -1,
+
+    distRandMax: 300,
+    distRandMin: 10,
+    forceRandMax: 1,
+    forceRandMin: -1,
+
+    isLockedParticleForce: false, // 是否鎖定粒子力
+    isLockedParticleDistance: false, // 是否鎖定粒子距離
+
     threadMode: 'multithread',
     particleTypes: 3,
     particleCounts: [250, 250, 250],
@@ -119,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let particleCollisionTimeAverageUpdateLastTime = 0;
 
     const canvas2d = document.getElementById("board2d");
+    gameState.distMax = canvas2d.width / 2;
     const ctx = canvas2d.getContext("2d");
 
 
@@ -566,16 +580,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // 隨機化值
     function randomizeValues() {
-        document.querySelectorAll('.particle-force').forEach(p => {
-            const value = (Math.random() * 2 - 1).toFixed(1);
-            p.value = value;
-            p.dispatchEvent(new Event('input'));
-        });
-        document.querySelectorAll('.particle-distance').forEach(p => {
-            const value = Math.floor(Math.random() * (300 - 10 + 1)) + 10;
-            p.value = value;
-            p.dispatchEvent(new Event('input'));
-        });
+        if (!gameState.isLockedParticleForce) {
+            document.querySelectorAll('.particle-force').forEach(p => {
+                const value = (Math.random() * (gameState.forceRandMax - gameState.forceRandMin) + gameState.forceRandMin).toFixed(1);
+                p.value = value;
+                p.dispatchEvent(new Event('input'));
+            });
+        }
+        if(!gameState.isLockedParticleDistance){
+            document.querySelectorAll('.particle-distance').forEach(p => {
+                const value = Math.floor(Math.random() * (gameState.distRandMax - gameState.distRandMin)) + gameState.distRandMin;
+                p.value = value;
+                p.dispatchEvent(new Event('input'));
+            });
+        }
         updateRules();
     }
     // 隨機化並重新開始
@@ -630,7 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
             gAffectCalcTimeAverageUpdateLastTime = performance.now();
         }
         document.getElementById('g-Affect-Calc-time-max').textContent = performanceDataLocal.gAffectCalcTimeMax.toFixed(2);
-        document.getElementById('g-Affect-Calc-time-single-average').textContent = performanceData.gAffectCalcCountsTimes > 0 ? ((performanceDataLocal.gAffectCalcTimeAverage/performanceData.gAffectCalcCountsTimes).toFixed(6)) : '不適用';
+        document.getElementById('g-Affect-Calc-time-single-average').textContent = performanceData.gAffectCalcCountsTimes > 0 ? ((performanceDataLocal.gAffectCalcTimeAverage/(performanceData.gAffectCalcCountsTimes - performanceData.particleSkippedCountsTimes)).toFixed(6)) : '不適用';
         document.getElementById('g-Affect-Calc-time-run-per-update').textContent = performanceData.gAffectCalcCountsTimes;
         document.getElementById('particleSkippedCountsTimes').textContent = performanceData.particleSkippedCountsTimes;
         document.getElementById('particleValidCountsTimes').textContent = performanceData.gAffectCalcCountsTimes - performanceData.particleSkippedCountsTimes;
@@ -654,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
             particleCollisionTimeAverageUpdateLastTime = performance.now();
         }
         document.getElementById('particle-collision-time-max').textContent = performanceDataLocal.particleCollisionTimeMax.toFixed(2);
-        document.getElementById('particle-collision-time-single-average').textContent = performanceData.particleCollisionCountsTimes > 0 ? ((performanceDataLocal.particleCollisionTimeAverage/performanceData.particleCollisionCountsTimes).toFixed(4)) : '不適用';
+        document.getElementById('particle-collision-time-single-average').textContent = performanceData.particleCollisionCountsTimes > 0 ? ((performanceDataLocal.particleCollisionTimeAverage/performanceData.particleCollisionCountsTimes).toFixed(6)) : '不適用';
         document.getElementById('particle-collision-time-run-per-update').textContent = performanceData.particleCollisionCountsTimes;
 
         document.getElementById('Particle-Affect-Calc-time').textContent = performanceData.ParticleAffcetCalcTime.toFixed(2);
@@ -1177,7 +1195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let j = 0; j < types; j++) {
                 // Keep old force value if available, otherwise use 0
                 forceMatrix[i][j] = oldForceMatrix && i < oldForceMatrix.length && j < oldForceMatrix[i].length ? 
-                    oldForceMatrix[i][j] : Math.random()*2-1;
+                    oldForceMatrix[i][j] : (Math.random() * (gameState.forceRandMax - gameState.forceRandMin + 1) + gameState.forceRandMin).toFixed(1);
             }
         }
         gameState.forceMatrix = forceMatrix;
@@ -1189,7 +1207,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let j = 0; j < types; j++) {
                 // Keep old distance value if available, otherwise use 100
                 distanceMatrix[i][j] = oldDistanceMatrix && i < oldDistanceMatrix.length && j < oldDistanceMatrix[i].length ?
-                    oldDistanceMatrix[i][j] : 150;
+                    oldDistanceMatrix[i][j] : Math.floor(Math.random() * (gameState.distRandMax - gameState.distRandMin + 1)) + gameState.distRandMin;
             }
         }
         gameState.distanceMatrix = distanceMatrix;
@@ -1309,7 +1327,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if( i == -1){
                 html += `<td></td>`;    
                 for (let j = 0; j < types; j++) {
-                    html += `<td style="text-align: center; vertical-align: middle;"><div class="circle" style="background-color: ${hslToHex(gameState.particleColors[j])}; display: inline-block;"></div></td>`;
+                    html += `<td style="text-align: center;"><div class="circle" style="background-color: ${hslToHex(gameState.particleColors[j])}; display: inline-block;"></div></td>`;
                 }
                 continue;
             }
@@ -1348,16 +1366,31 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="matrix-table">  
                 <h4>粒子引力</h4>
                 <p class="description">數值越大，粒子越容易聚集在一起</p>
-                ${createMatrixTable(types, 'particle-force', -1, 1, 0.05, gameState.forceMatrix)}
+                ${createMatrixTable(types, 'particle-force', gameState.forceMin, gameState.forceMax, 0.05, gameState.forceMatrix)}
+                <div class="toggle-container">
+                    <label for="particle-force-lock" class="toggle-label">🔒 鎖定數值 </label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="particle-force-lock">
+                        <span class="slider"></span>
+                    </div>
+                </div>
+                
             </div>
 
             <div class="matrix-table">
                 <h4>粒子距離</h4>
                 <p class="description">數值越大，引力范圍越大</p>
-                ${createMatrixTable(types, 'particle-distance', 10, 300, 10, gameState.distanceMatrix)}
+                ${createMatrixTable(types, 'particle-distance', gameState.distMin, gameState.distMax, 10, gameState.distanceMatrix)}
+                <div class="toggle-container">
+                    <label for="particle-distance-lock" class="toggle-label">🔒 鎖定數值 </label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="particle-distance-lock">
+                        <span class="slider"></span>
+                    </div>
+                </div>
             </div>
         `;
-        
+
         particleAffcetRadiusShow.innerHTML = '';
         for (let i = 0; i < types; i++) {
             particleAffcetRadiusShow.innerHTML += `
@@ -1437,6 +1470,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameState.distanceMatrix[i][j] = parseFloat(distance);
                 updateRules();
             });
+        });
+
+        document.getElementById("particle-force-lock").addEventListener('change', (e) => {
+            gameState.isLockedParticleForce = e.target.checked;
+            
+        });
+        document.getElementById("particle-distance-lock").addEventListener('change', (e) => {
+            gameState.isLockedParticleDistance = e.target.checked;
+            
         });
     }
     // 設置粒子影響範圍顯示的事件監聽器
