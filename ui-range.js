@@ -1,3 +1,4 @@
+//此自定義元素取自[巧用两个type=range input实现区域范围选择](https://www.zhangxinxu.com/study/202102/two-range-input-demo.php),由我本人修改而成
 class uiRange extends HTMLElement {
     constructor () {
         super();
@@ -5,7 +6,7 @@ class uiRange extends HTMLElement {
     static get style () {
         return `<style>
             :host {
-                --ui-range-track-hegiht: 4px;
+                --ui-range-track-height: 4px;
                 --ui-range-thumb-size: 16px;
                 --ui-gray: #a2a9b6;
                 --ui-blue: #2a80eb;
