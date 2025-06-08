@@ -299,7 +299,7 @@ async function update() {
         // 處理粒子碰撞
         const particleCollisionStartTime = performance.now();
         performanceData.particleCollisionCountsTimes = 0;
-        await particlesCollision();
+        //await particlesCollision();
         performanceData.particleCollisionTime = performance.now() - particleCollisionStartTime;
 
         // 處理粒子影響範圍顯示
@@ -541,7 +541,7 @@ async function particlesCollision() {
             const endId = Math.min(startId + particlesPerWorker, particleCount);
 
             if (startId > endId) {
-                console.error("why?",`>>>>>>>>WHY THE FK?<<<<<<<<`)
+                console.error("why!?",`>>>>>>>>WHY THE FK?<<<<<<<<`)
                 throw new Error(`Worker ${j} 的 startId (${startId}) 大於 endId (${endId})`);
             }
             // 記錄 Promise 資訊

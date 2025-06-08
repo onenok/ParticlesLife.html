@@ -28,13 +28,22 @@ const sharedMemoryAPI = {
     },
     getParticleById(id) {
         let particleCumulativeCount = 0;
-        for (let type = 0; type < particleTypes; type++) {
-            const particleCount = particleCounts[type];
-            if (particleCumulativeCount + particleCount > id) {
-                return this.getParticle(type, id - particleCumulativeCount);
+        let t = 0;
+        let i = 0;
+        try {
+            for (let type = 0; type < particleTypes; type++) {
+                const particleCount = particleCounts[type];
+                if (particleCumulativeCount + particleCount > id) {
+                    t = type;
+                    i = id - particleCumulativeCount;
+                    return this.getParticle(type, id - particleCumulativeCount);
+                }
+                particleCumulativeCount += particleCount;
             }
-            particleCumulativeCount += particleCount;
+        } catch (error) {
+            console.error(`Worker ${workerId} particlesCollision failed to get particle by id ${id} type ${t} index ${i}:`, error);
         }
+        
         console.warn(`Particle with id ${id} not found`);
         return null;
     },
@@ -224,23 +233,31 @@ function calculate_ForceForce(startId, endId) {
                         dy -= Math.sign(dy) * canvas.height;
                     }
                 }
+                
 
                 const distSquared = dx * dx + dy * dy;
-                if (distSquared >= maxDistSquared || distSquared === 0) {
+                if (distSquared >= maxDistSquared) {
+
                     skippedCount++;
                     continue;
                 }
-
-                const distance = Math.sqrt(distSquared);
-                const normalizedDist = distance / maxDistance;
-                const forceMagnitude = calculateForce(normalizedDist, force);
-
-                if (forceMagnitude === 0) {
-                    skippedCount++;
-                    continue;
+                else if (distSquared === 0) {
+                    fx += Math.random() * 0.01 - 0.005;
+                    fy += Math.random() * 0.01 - 0.005; // 隨機小擾動                  
                 }
-                fx += forceMagnitude * dx / distance;
-                fy += forceMagnitude * dy / distance;
+                else {
+
+                    const distance = Math.sqrt(distSquared);
+                    const normalizedDist = distance / maxDistance;
+                    const forceMagnitude = calculateForce(normalizedDist, force);
+
+                    if (forceMagnitude === 0) {
+                        skippedCount++;
+                        continue;
+                    }
+                    fx += forceMagnitude * dx / distance;
+                    fy += forceMagnitude * dy / distance;
+                }
             }
             totalForceX += fx * 10 * maxDistance;
             totalForceY += fy * 10 * maxDistance;
@@ -299,7 +316,12 @@ function particlesCollision(startId, endId, frictionFactor, isThrough, restituti
     onceConsole('particlesCollision_start', `particlesCollision Worker ${workerId} from id ${startId} to ${endId} at ${performance.now()}`);
     for (let id = startId; id < endId; id++) {
         // 讀取當前位置和速度
-        let p = sharedMemoryAPI.getParticleById(id);
+        try{
+            let p = sharedMemoryAPI.getParticleById(id);
+        }catch (error) {
+            console.error(`Worker ${workerId} particlesCollision failed to get particle by id ${id}:`, error);
+            continue; // 如果讀取失敗，則跳過此粒子
+        }
         // >>> 粒子類型循環 <<<
         for (let type2 = 0; type2 < particleTypes; type2++) {
             // --避免自我碰撞--
@@ -325,6 +347,9 @@ function particlesCollision(startId, endId, frictionFactor, isThrough, restituti
                     if (Math.abs(dy) > canvas.height / 2) {
                         dy = dy - Math.sign(dy) * canvas.height;
                     }
+                }
+                if (Math.abs(dx) >= ballRadius || Math.abs(dy) >= ballRadius) {
+                    continue; // 如果距離大於半徑，則跳過
                 }
                 
                 // --碰撞檢測--
@@ -352,27 +377,34 @@ function particlesCollision(startId, endId, frictionFactor, isThrough, restituti
                     const tangentVelocity = dvx * tx + dvy * ty;
                     
                     // >>> 碰撞響應 <<<
-                    if (normalVelocity < 0) {
-                        // --衝量計算--
-                        const jn = -(1 + restitution) * normalVelocity / 2;
-                        const jt = -tangentVelocity * frictionFactor / 2;
+                    if (normalVelocity >= 0) {
+                        continue; // 如果法向速度為正，則不處理碰撞
+                    }
+                    particleCollisionCountsTimes++; // 粒子碰撞次數
+                    // --衝量計算--
+                    const jn = -(1 + restitution) * normalVelocity / 2;
+                    const jt = -tangentVelocity * frictionFactor / 2;
+                    
+                    // --速度更新--
+                    p.vx -= (jn * nx + jt * tx);
+                    p.vy -= (jn * ny + jt * ty);
+                    // --重疊修正--
+                    const overlap = minDist - dist;
+                    if (overlap > 0) {
+                        const correction = (overlap / 2) * 1.05;
+                        totalx -= nx * correction;
+                        totaly -= ny * correction;
                         
-                        // --速度更新--
-                        p.vx -= (jn * nx + jt * tx);
-                        p.vy -= (jn * ny + jt * ty);
-                        particleCollisionCountsTimes++; // 粒子碰撞次數
-                        // --重疊修正--
-                        const overlap = minDist - dist;
-                        if (overlap > 0) {
-                            const correction = (overlap / 2) * 1.05;
-                            totalx -= nx * correction;
-                            totaly -= ny * correction;
-                            
-                            
-                        }
+                        
                     }
                 }
             }
+            if (totalx === 0 && totaly === 0) {
+                continue; // 如果沒有碰撞，則跳過
+            }
+            // >>> 更新粒子位置 <<<
+            p.x += totalx;
+            p.y += totaly;
             // >>> 邊界檢查和修正 <<<
             // --第一個粒子--
             if (isThrough) {

@@ -25,7 +25,7 @@ let worker = new Worker('particleWorker_multithread_fixed.js');
 // 用戶可控制數據的初始化
 const gameState = {
     // 粒子系統基本設置
-    distRandMax: null,
+    distMax: null,
     distMin: 0,
     forceMax: 1,
     forceMin: -1,
@@ -59,17 +59,17 @@ const gameState = {
         [300, 300, 300],
         [300, 300, 300]
     ],
-    
+
     // 物理參數
     tHalf: 0.020,         // 摩擦半衰期
-    dt: 1/144,           // 時間步長
-    
+    dt: 1 / 144,           // 時間步長
+
     // 顯示設置
     isThrough: false,     // 無邊界模式
-    
+
     // 滑鼠交互
     mouseForce: 100,
-    
+
     // 其他設置
     enableParticleAffcetRadiusShow: false,
     selectedParticleIndex: null,
@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("DOMContentLoaded")
 
     // 添加變量
+    let nextParticleId = 0; // 用於生成唯一的粒子 ID
     let frameCount = 0;
     let lastTime = performance.now();
     let fps = 0;
@@ -132,7 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let particleCollisionTimeAverageUpdateLastTime = 0;
 
     const canvas2d = document.getElementById("board2d");
-    gameState.distMax = canvas2d.width / 2;
+    gameState.distMax = Math.floor(Math.min(canvas2d.width, canvas2d.height) / 20) * 10;
+    console.log(`canvas2d.width: ${canvas2d.width}, canvas2d.height: ${canvas2d.height}`);
     const ctx = canvas2d.getContext("2d");
 
 
@@ -143,11 +145,11 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let type = 0; type < gameState.particleTypes; type++) {
             for (let i = 0; i < gameState.particleCounts[type]; i++) {
                 let p;
-                try{
+                try {
                     p = sharedMemory.getParticle(type, i);
                     onceConsole(`draw particle ${type}`, JSON.stringify(p));
                 }
-                catch (e){
+                catch (e) {
                     console.error(p)
                     console.error(e)
                     throw new Error("");
@@ -170,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ctx.fillStyle = 'gray';
                         ctx.fill();
                         ctx.closePath();
-                    }else if (p.id === gameState.selectedParticleId) {
+                    } else if (p.id === gameState.selectedParticleId) {
                         let isXOverflow = false;
                         let isYOverflow = false;
                         let newx = p.x;
@@ -194,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     isYOverflow = false;
                                     newx = p.x;
                                     newy = p.y;
-                                    if ((p.x < radius || p.x > canvas2d.width - radius)){
+                                    if ((p.x < radius || p.x > canvas2d.width - radius)) {
                                         isXOverflow = true;
                                         newx = p.x < radius ? p.x + canvas2d.width : p.x - canvas2d.width;
                                         ctx.beginPath();
@@ -203,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         ctx.fill();
                                         ctx.closePath();
                                     }
-                                    if ((p.y < radius || p.y > canvas2d.height - radius)){
+                                    if ((p.y < radius || p.y > canvas2d.height - radius)) {
                                         isYOverflow = true;
                                         newy = p.y < radius ? p.y + canvas2d.height : p.y - canvas2d.height;
                                         ctx.beginPath();
@@ -222,9 +224,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
                         }
-                    } else { 
+                    } else {
                         if (gameState.RadiusShow[p.type]) {
-                            ctx.fillStyle = (gameState.nearbyParticlesList[p.type]||[]).includes(p) ? p.color : 'gray';
+                            ctx.fillStyle = (gameState.nearbyParticlesList[p.type] || []).includes(p) ? p.color : 'gray';
                             ctx.fill();
                             ctx.closePath();
                         }
@@ -249,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = '#000'; // Dark text
         ctx.textBaseline = "middle";
         ctx.textAlign = "center";
-        ctx.fillText('⚠️ 畫布正在移動中', canvasWidth/2, canvasHeight/2, canvasWidth); // Added warning emoji and using fillText for solid text
+        ctx.fillText('⚠️ 畫布正在移動中', canvasWidth / 2, canvasHeight / 2, canvasWidth); // Added warning emoji and using fillText for solid text
     }
 
     function drawVectorArrow(x, y, vx, vy) {
@@ -259,8 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineWidth = 1.5;
         var headlen = 2; // 箭頭長度
         var angle = Math.atan2(vy, vx);
-        let dx = vx*10;
-        let dy = vy*10;
+        let dx = vx * 10;
+        let dy = vy * 10;
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(x + dx, y + dy);
@@ -288,18 +290,18 @@ document.addEventListener('DOMContentLoaded', () => {
             this.particleCounts = particleCounts;
             this.buffers = {};
             this.views = {};
-            
+
             // 為每種粒子類型創建獨立的緩衝區
             this.buffers.particleGroups = [];
             this.views.particleGroups = [];
-            
+
             for (let i = 0; i < particleTypes; i++) {
                 const count = particleCounts[i];
                 // 每個粒子需要 5 個 Int32 (x, y, vx, vy, id)
                 // 額外分配 2 個 Int32 用於存儲 color 和 type
                 const bufferSize = (count * 5 + 2) * Int32Array.BYTES_PER_ELEMENT;
                 this.buffers.particleGroups[i] = new SharedArrayBuffer(bufferSize);
-                
+
                 // 創建視圖
                 this.views.particleGroups[i] = {
                     x: new Int32Array(this.buffers.particleGroups[i], 0, count),
@@ -382,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 view.vy.fill(0);
                 view.id.fill(0);
             }
-            
+
             // 清除同步計數器
             this.views.sync.fill(0);
         }
@@ -503,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.add(particle, index);
         }
     }*/
-    
+
     // 添加atomicFloat輔助函數
     function storeAtomicFloat(array, index, value) {
         return Atomics.store(array, index, Math.round(value * 1000));
@@ -548,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化遊戲函數修改
     function initGame() {
         gameState.sharedMemory = new SharedMemoryManager(gameState.particleTypes, gameState.particleCounts);
-        
+
         // --初始化矩陣和粒子--
         nextParticleId = 0; // 重置 id 計數器
         for (let type = 0; type < gameState.particleTypes; type++) {
@@ -587,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 p.dispatchEvent(new Event('input'));
             });
         }
-        if(!gameState.isLockedParticleDistance){
+        if (!gameState.isLockedParticleDistance) {
             document.querySelectorAll('.particle-distance').forEach(p => {
                 const value = Math.floor(Math.random() * (gameState.distRandMax - gameState.distRandMin)) + gameState.distRandMin;
                 p.value = value;
@@ -603,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
- 
+
     function update() {
         // 更新所選單元格的顯示
         draw(gameState.sharedMemory);
@@ -613,16 +615,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (performanceData.totalTime > performanceDataLocal.totalTimeMax) {
             performanceDataLocal.totalTimeMax = performanceData.totalTime;
         }
-        if (performanceData.gAffectCalcTime > performanceDataLocal.gAffectCalcTimeMax){
+        if (performanceData.gAffectCalcTime > performanceDataLocal.gAffectCalcTimeMax) {
             performanceDataLocal.gAffectCalcTimeMax = performanceData.gAffectCalcTime;
         }
-        if (performanceData.positionUpdateTime > performanceDataLocal.positionUpdateTimeMax){
+        if (performanceData.positionUpdateTime > performanceDataLocal.positionUpdateTimeMax) {
             performanceDataLocal.positionUpdateTimeMax = performanceData.positionUpdateTime;
         }
-        if (performanceData.particleCollisionTime > performanceDataLocal.particleCollisionTimeMax){
+        if (performanceData.particleCollisionTime > performanceDataLocal.particleCollisionTimeMax) {
             performanceDataLocal.particleCollisionTimeMax = performanceData.particleCollisionTime;
         }
-        if (performanceData.ParticleAffcetCalcTime > performanceDataLocal.ParticleAffcetCalcTimeMax){
+        if (performanceData.ParticleAffcetCalcTime > performanceDataLocal.ParticleAffcetCalcTimeMax) {
             performanceDataLocal.ParticleAffcetCalcTimeMax = performanceData.ParticleAffcetCalcTime;
         }
         performanceDataLocal.totalTimeAll.push(performanceData.totalTime);
@@ -635,7 +637,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (performance.now() - totalTimeAverageUpdateLastTime >= totalTimeAverageUpdateMs) {
             performanceDataLocal.totalTimeAverage = performanceDataLocal.totalTimeAll.reduce((a, b) => a + b, 0) / performanceDataLocal.totalTimeAll.length;
             document.getElementById('total-time-average').textContent = performanceDataLocal.totalTimeAverage.toFixed(2);
-            performanceDataLocal.totalTimeAll = [];  
+            performanceDataLocal.totalTimeAll = [];
             totalTimeAverageUpdateLastTime = performance.now();
         }
         document.getElementById('total-time-max').textContent = performanceDataLocal.totalTimeMax.toFixed(2);
@@ -648,7 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
             gAffectCalcTimeAverageUpdateLastTime = performance.now();
         }
         document.getElementById('g-Affect-Calc-time-max').textContent = performanceDataLocal.gAffectCalcTimeMax.toFixed(2);
-        document.getElementById('g-Affect-Calc-time-single-average').textContent = performanceData.gAffectCalcCountsTimes > 0 ? ((performanceDataLocal.gAffectCalcTimeAverage/(performanceData.gAffectCalcCountsTimes - performanceData.particleSkippedCountsTimes)).toFixed(6)) : '不適用';
+        document.getElementById('g-Affect-Calc-time-single-average').textContent = performanceData.gAffectCalcCountsTimes > 0 ? ((performanceDataLocal.gAffectCalcTimeAverage / (performanceData.gAffectCalcCountsTimes - performanceData.particleSkippedCountsTimes)).toFixed(6)) : '不適用';
         document.getElementById('g-Affect-Calc-time-run-per-update').textContent = performanceData.gAffectCalcCountsTimes;
         document.getElementById('particleSkippedCountsTimes').textContent = performanceData.particleSkippedCountsTimes;
         document.getElementById('particleValidCountsTimes').textContent = performanceData.gAffectCalcCountsTimes - performanceData.particleSkippedCountsTimes;
@@ -661,7 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
             positionUpdateTimeAverageUpdateLastTime = performance.now();
         }
         document.getElementById('position-update-time-max').textContent = performanceDataLocal.positionUpdateTimeMax.toFixed(2);
-        document.getElementById('position-update-time-single-average').textContent = performanceData.positionUpdateCountsTimes > 0 ? ((performanceDataLocal.positionUpdateTimeAverage/performanceData.positionUpdateCountsTimes).toFixed(4)) : '不適用';
+        document.getElementById('position-update-time-single-average').textContent = performanceData.positionUpdateCountsTimes > 0 ? ((performanceDataLocal.positionUpdateTimeAverage / performanceData.positionUpdateCountsTimes).toFixed(4)) : '不適用';
         document.getElementById('position-update-time-run-per-update').textContent = performanceData.positionUpdateCountsTimes;
 
         document.getElementById('particle-collision-time').textContent = performanceData.particleCollisionTime.toFixed(2);
@@ -672,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
             particleCollisionTimeAverageUpdateLastTime = performance.now();
         }
         document.getElementById('particle-collision-time-max').textContent = performanceDataLocal.particleCollisionTimeMax.toFixed(2);
-        document.getElementById('particle-collision-time-single-average').textContent = performanceData.particleCollisionCountsTimes > 0 ? ((performanceDataLocal.particleCollisionTimeAverage/performanceData.particleCollisionCountsTimes).toFixed(6)) : '不適用';
+        document.getElementById('particle-collision-time-single-average').textContent = performanceData.particleCollisionCountsTimes > 0 ? ((performanceDataLocal.particleCollisionTimeAverage / performanceData.particleCollisionCountsTimes).toFixed(6)) : '不適用';
         document.getElementById('particle-collision-time-run-per-update').textContent = performanceData.particleCollisionCountsTimes;
 
         document.getElementById('Particle-Affect-Calc-time').textContent = performanceData.ParticleAffcetCalcTime.toFixed(2);
@@ -685,7 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('Particle-Affect-Calc-time-max').textContent = performanceDataLocal.ParticleAffcetCalcTimeMax.toFixed(2);
 
         // 更新選中粒子的屬性顯示
-        if (gameState.enableParticleAffcetRadiusShow){
+        if (gameState.enableParticleAffcetRadiusShow) {
             const propertyElement = document.getElementById('selectedParticleProperty');
             if (gameState.selectedParticleId !== null && gameState.selectedParticleType !== null) {
                 // 在 sharedMemory 中查找選中的粒子
@@ -729,7 +731,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         gameUPS = performanceDataLocal.updateIntervalCountsTimes;
         document.getElementById('gameUPS').textContent = gameUPS;
-        
+
         let totalTimeAddShowContent = '';
         const totalTimeAddShowContentList = [Number(performanceDataLocal.gAffectCalcTimeAverage.toFixed(2)), Number(performanceDataLocal.positionUpdateTimeAverage.toFixed(2)), Number(performanceDataLocal.particleCollisionTimeAverage.toFixed(2)), Number(performanceDataLocal.ParticleAffcetCalcTimeAverage.toFixed(2))];
         totalTimeAddShowContent += `${totalTimeAddShowContentList.join(' + ')}<br><br>`;
@@ -752,7 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
             //console.log(`before performanceDataLocal.totalTimeAverage: ${performanceDataLocal.totalTimeAverage}`);
             performanceData = e.data.performanceData;
             //console.log(`after performanceDataLocal.totalTimeAverage: ${performanceDataLocal.totalTimeAverage}`);
-            if (gameState.enableParticleAffcetRadiusShow){
+            if (gameState.enableParticleAffcetRadiusShow) {
                 gameState.nearbyParticlesList = e.data.nearbyParticlesList;
                 for (let i = 0; i < gameState.nearbyParticlesList.length; i++) {
                     //console.log(`gameState.nearbyParticlesList[${i}]: ${gameState.nearbyParticlesList[i]}`);
@@ -902,7 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
     threadModeSelect.addEventListener('change', async () => {
         const newMode = threadModeSelect.value;
         const currentMode = gameState.threadMode;
-        
+
         if (newMode === currentMode) return;
 
         gameState.threadMode = newMode;
@@ -917,24 +919,24 @@ document.addEventListener('DOMContentLoaded', () => {
             case "multithread":
                 worker = new Worker('particleWorker_multithread_fixed.js');
                 break;
-                
+
             case "multithread_gpu":
                 // 預留給 GPU 加速模式
                 console.log("GPU acceleration mode is under development");
                 return;
-                
+
             case "multithread_wasm":
                 // 預留給 WebAssembly 模式
                 console.log("WebAssembly mode is under development");
                 return;
-                
+
             default:
                 console.error("Unknown thread mode:", newMode);
                 return;
         }
 
         // 初始化新的 worker
-        worker.postMessage({ 
+        worker.postMessage({
             type: 'changeThreadInit',
             particleCounts: gameState.particleCounts,
             canvasWidth: canvas2d.width,
@@ -949,12 +951,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // 更新所有相關狀態
         updateEveryThing();
     });
-        
+
     // 添加按鈕事件監聽器
     document.getElementById('randomize-button').addEventListener('click', randomizeValues);
     document.getElementById('restart-button').addEventListener('click', initGame);
     document.getElementById('randomize-and-restart-button').addEventListener('click', randomizeAndRestart);
-    document.addEventListener("keydown", function(event) {
+    document.addEventListener("keydown", function (event) {
         if (event.key === "r") {
             randomizeValues();
         }
@@ -978,7 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentIndex = threadModeSelect.selectedIndex;
             let nextIndex = (currentIndex + 1) % threadModeSelect.options.length;
             let nextOption = threadModeSelect.options[nextIndex];
-            
+
             while (nextOption.disabled) {
                 nextIndex = (nextIndex + 1) % threadModeSelect.options.length;
                 nextOption = threadModeSelect.options[nextIndex];
@@ -990,7 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 添加滑鼠事件監聽器
     canvas2d.addEventListener('mousedown', (e) => {
-        if (!gameState.enableParticleAffcetRadiusShow){
+        if (!gameState.enableParticleAffcetRadiusShow) {
             isUpdateMouseDownUp = true;
             isUpdateMouse = true;
             isMouseDown = true;
@@ -1016,9 +1018,9 @@ document.addEventListener('DOMContentLoaded', () => {
             worker.postMessage({ type: 'updateMousePosition', x: mouseX, y: mouseY });
         }
     }
-    
+
     // 更新HTML
-    function updateHTML(){
+    function updateHTML() {
         const throughCheckbox = document.getElementById('isThrough');
         const particleTypes = document.getElementById('particle-types');
         const updateInterval = document.getElementById('updateInterval');
@@ -1036,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mouseForce.dispatchEvent(new Event('input'));
 
     };
-    
+
     function updateCanvasSize() {
         const controlPanel = document.getElementById('controls');
         const isPanelVisible = controlPanel.classList.contains('visible');
@@ -1045,7 +1047,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         canvas2d.width = width;
         canvas2d.height = height;
-
+        gameState.distMax = Math.floor(Math.min(canvas2d.width, canvas2d.height) / 20) * 10;
+        document.querySelectorAll('.particle-distance').forEach(p => {
+            p.max = gameState.distMax;
+            p.value = Math.min(p.value, gameState.distMax);
+            p.dispatchEvent(new Event('input'));
+        });
+        document.querySelectorAll('.distance-range-slider').forEach(p => {
+            let tempMax = p.max;
+            let tempValue = p.value.split(/,\s*|\s+/);
+            p.max = gameState.distMax;
+            if (tempValue[1] == tempMax) {
+                p.value = `${tempValue[0]},${gameState.distMax}`;
+            } else {
+                p.value = `${tempValue[0]},${Math.min(p.value, gameState.distMax)}`;
+            }
+            p.dispatchEvent(new Event('input'));
+        });
+        document.querySelectorAll('.distance-range-slider-max').forEach(p => {
+            p.innerHTML = gameState.distMax;
+        });
         // 設置 Canvas 樣式
         canvas2d.style.position = 'absolute';
         canvas2d.style.left = '0';
@@ -1076,22 +1097,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // 監聽視窗大小變化
     window.addEventListener("resize", updateCanvasSize);
 
-    function updateMouseForce(){
+    function updateMouseForce() {
         worker.postMessage({ type: 'updateMouseForce', force: gameState.mouseForce });
     }
-    function updateUpdateInterval(){
+    function updateUpdateInterval() {
         worker.postMessage({ type: 'updateUpdateInterval', interval: gameState.updateInterval });
     }
-    function updateDt(){
+    function updateDt() {
         worker.postMessage({ type: 'updateDt', dt: gameState.dt });
     }
-    function updateBallRadius(){
+    function updateBallRadius() {
         worker.postMessage({ type: 'updateBallRadius', ballRadius: gameState.ballRadius });
     }
-    function updateRadiusShow(){
+    function updateRadiusShow() {
         worker.postMessage({ type: 'updateRadiusShow', RadiusShow: gameState.RadiusShow });
     }
-    function updateTHalf(){
+    function updateTHalf() {
         worker.postMessage({ type: 'updateTHalf', tHalf: gameState.tHalf });
     }
 
@@ -1101,7 +1122,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     */
 
-    function updateEveryThing(){
+    function updateEveryThing() {
         updateHTML();
         updateCanvasSize();
         updateRules();
@@ -1165,7 +1186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('t-half').value = tHalf;
         worker.postMessage({ type: 'updateTHalf', tHalf: tHalf });
     });
-    
+
 
     const enableParticleAffcetRadiusShowCheckbox = document.getElementById('enableParticleAffcetRadiusShow');
     enableParticleAffcetRadiusShowCheckbox.addEventListener('change', () => {
@@ -1187,20 +1208,20 @@ document.addEventListener('DOMContentLoaded', () => {
         isThreeRadiusShow = isThreeRadiusShowCheckbox.checked;
     });
     */
-    
+
     function initializeMatrices(types, oldForceMatrix, oldDistanceMatrix) {
         forceMatrix = new Array(types);
         for (let i = 0; i < types; i++) {
             forceMatrix[i] = new Array(types);
             for (let j = 0; j < types; j++) {
                 // Keep old force value if available, otherwise use 0
-                forceMatrix[i][j] = oldForceMatrix && i < oldForceMatrix.length && j < oldForceMatrix[i].length ? 
+                forceMatrix[i][j] = oldForceMatrix && i < oldForceMatrix.length && j < oldForceMatrix[i].length ?
                     oldForceMatrix[i][j] : (Math.random() * (gameState.forceRandMax - gameState.forceRandMin + 1) + gameState.forceRandMin).toFixed(1);
             }
         }
         gameState.forceMatrix = forceMatrix;
         //console.log(`index.html: forceMatrix: ${forceMatrix}`);
-        
+
         distanceMatrix = new Array(types);
         for (let i = 0; i < types; i++) {
             distanceMatrix[i] = new Array(types);
@@ -1212,7 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         gameState.distanceMatrix = distanceMatrix;
         //console.log(`index.html: distanceMatrix: ${distanceMatrix}`);
-        
+
         /*particleGroups = new Array(types);
         for (let i = 0; i < types; i++) {
             particleGroups[i] = [];
@@ -1276,9 +1297,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameState.selectedParticleType = selectedParticle.type;
                 document.getElementById('selectedParticleId').textContent = gameState.selectedParticleId;
                 // 請求 worker 計算附近的粒子
-                console.log('選中粒子','selectedParticleId', gameState.selectedParticleId, 'selectedParticleIndex', gameState.selectedIndex, 'selectedParticleType', gameState.selectedParticleType);
-                worker.postMessage({ 
-                    type: 'updateSelectedParticle', 
+                console.log('選中粒子', 'selectedParticleId', gameState.selectedParticleId, 'selectedParticleIndex', gameState.selectedIndex, 'selectedParticleType', gameState.selectedParticleType);
+                worker.postMessage({
+                    type: 'updateSelectedParticle',
                     particleId: gameState.selectedParticleId,
                     particleIndex: gameState.selectedIndex,
                     particleType: gameState.selectedParticleType
@@ -1288,8 +1309,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameState.selectedParticleId = null;
                 gameState.selectedParticleType = null;
                 console.log('未選中粒子');
-                worker.postMessage({ 
-                    type: 'updateSelectedParticle', 
+                worker.postMessage({
+                    type: 'updateSelectedParticle',
                     particleId: null,
                 });
                 gameState.nearbyParticlesList = [];
@@ -1300,7 +1321,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 創建粒子類型控制界面
     function createParticleTypeControls(type, total, min, max, step, count) {
         const defaultColor = gameState.particleColors[type];
-        
+
         return `
             <div class="particle-type" data-type="${type}">
                 <h4>類型 ${type + 1}</h4>
@@ -1320,23 +1341,23 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    function createMatrixTable(types, matrixType, min, max, step, matrix){
+    function createMatrixTable(types, matrixType, min, max, step, matrix) {
         let html = '<table class="matrix-container">';
         for (let i = -1; i < types; i++) {
             html += `<tr>`;
-            if( i == -1){
-                html += `<td></td>`;    
+            if (i == -1) {
+                html += `<td></td>`;
                 for (let j = 0; j < types; j++) {
                     html += `<td style="text-align: center;"><div class="circle" style="background-color: ${hslToHex(gameState.particleColors[j])}; display: inline-block;"></div></td>`;
                 }
                 continue;
             }
             for (let j = -1; j < types; j++) {
-                if(j == -1){
+                if (j == -1) {
                     html += `<td style="text-align: center; vertical-align: middle;"><div class="circle" style="background-color: ${hslToHex(gameState.particleColors[i])}; display: inline-block;"></div></td>`;
                     continue;
                 }
-                html += `<td><input type="number" class="matrix-input ${matrixType}" data-i="${i}" data-j="${j}" min="${min}" max="${max}" step="${step}" onkeyup="if(this.value>${max}){this.value=${max}}else if(this.value<${min}){this.value=${min}}" value="${matrix[i][j]}"></td>`;
+                html += `<td><input type="number" class="matrix-input ${matrixType}" data-i="${i}" data-j="${j}" min="${min}" max="${max}" step="${step}" onkeyup="if(this.valueAsNumber>this.max){this.value=this.max}else if(this.valueAsNumber<this.min){this.value=this.min}" value="${matrix[i][j]}"></td>`;
             }
             html += `</tr>`;
         }
@@ -1354,19 +1375,20 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < types; i++) {
             gameState.RadiusShow[i] = gameState.RadiusShow[i] || true;
         };
-        
+
         // 更新粒子類型控制
         particleSettings.innerHTML = '';
         for (let i = 0; i < types; i++) {
             particleSettings.innerHTML += createParticleTypeControls(i, types, 0, 500, 10, gameState.particleCounts[i]);
         }
-        
+
         // 更新交互矩陣
         interactionMatrix.innerHTML = `
             <div class="matrix-table">  
                 <h4>粒子引力</h4>
                 <p class="description">數值越大，粒子越容易聚集在一起</p>
                 ${createMatrixTable(types, 'particle-force', gameState.forceMin, gameState.forceMax, 0.05, gameState.forceMatrix)}
+                ${createDoubleRangeSlider('force-range-slider', gameState.forceMax, gameState.forceMin, 0.05)}
                 <div class="toggle-container">
                     <label for="particle-force-lock" class="toggle-label">🔒 鎖定數值 </label>
                     <div class="toggle-switch">
@@ -1374,13 +1396,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="slider"></span>
                     </div>
                 </div>
-                
             </div>
 
             <div class="matrix-table">
                 <h4>粒子距離</h4>
                 <p class="description">數值越大，引力范圍越大</p>
                 ${createMatrixTable(types, 'particle-distance', gameState.distMin, gameState.distMax, 10, gameState.distanceMatrix)}
+                ${createDoubleRangeSlider('distance-range-slider', gameState.distMax, gameState.distMin, 10)}
                 <div class="toggle-container">
                     <label for="particle-distance-lock" class="toggle-label">🔒 鎖定數值 </label>
                     <div class="toggle-switch">
@@ -1390,6 +1412,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+
 
         particleAffcetRadiusShow.innerHTML = '';
         for (let i = 0; i < types; i++) {
@@ -1406,11 +1429,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="particle-nearby-particles" id="particle-nearby-particles-${i}">範圍內的類型${i + 1}粒子數量: N/A</p>
             `;
         }
-        
+
         // 添加事件監聽器
+        setupForceRangeSlider();
         setupParticleControlEventListeners();
         setupMatrixEventListeners();
         setupParticleAffcetRadiusShowEventListeners();
+    }
+    function createDoubleRangeSlider(type, max, min, step) {
+        return `
+            <div class="no-background" style="display: flex; justify-content: space-evenly; flex-wrap: nowrap; align-items: center;">
+                <span class="${type}-min">
+                    ${min}
+                </span>
+                <ui-range class="${type}" min=${min} max=${max} value="${min},${max}" step="${step}" multiple="" style="--from: ${min}; --to: ${max}; flex-grow: 0.75;"></ui-range>
+                <span class="${type}-max">
+                    ${max}
+                </span>
+            </div>
+            `;
+    }
+    function setupForceRangeSlider() {
+        const forceRandRangeInput = document.querySelector('.force-range-slider');
+        forceRandRangeInput.addEventListener('input', (e) => {
+            const value = e.target.value.split(/,\s*|\s+/);
+            const min = parseFloat(value[0]);
+            const max = parseFloat(value[1]);
+            gameState.forceRandMin = min;
+            gameState.forceRandMax = max;
+        });
+        const distRandRangeInput = document.querySelector('.distance-range-slider');
+        distRandRangeInput.addEventListener('input', (e) => {
+            const value = e.target.value.split(/,\s*|\s+/);
+            const min = parseFloat(value[0]);
+            const max = parseFloat(value[1]);
+            gameState.distRandMin = min;
+            gameState.distRandMax = max;
+        });
+
     }
     // 設置粒子控制的事件監聽器
     function setupParticleControlEventListeners() {
@@ -1418,19 +1474,26 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.particle-count').forEach(input => {
             const numberInput = input.parentElement.querySelector('.particle-count-number');
             const type = parseInt(input.closest('.particle-type').dataset.type);
-            
+            let timer; // Declare timer outside the event handlers to persist
+
             input.addEventListener('input', (e) => {
-                const value = e.target.value;
+                const value = e.target.valueAsNumber || 0;
                 numberInput.value = value;
-                gameState.particleCounts[type] = value;
-                initGame();
+                if (timer !== undefined) clearTimeout(timer);
+                timer = setTimeout(() => {
+                    gameState.particleCounts[type] = value;
+                    initGame();
+                }, 200);
             });
-            
+
             numberInput.addEventListener('input', (e) => {
-                const value = Math.min(Math.max(parseFloat(e.target.value) || 0, parseFloat(e.target.min)), parseFloat(e.target.max));
+                const value = Math.min(Math.max(parseFloat(e.target.valueAsNumber) || 0, parseFloat(e.target.min)), parseFloat(e.target.max));
                 input.value = value;
-                gameState.particleCounts[type] = value;
-                initGame();
+                if (timer !== undefined) clearTimeout(timer);
+                timer = setTimeout(() => {
+                    gameState.particleCounts[type] = value;
+                    initGame();
+                }, 200);
             });
         });
 
@@ -1438,7 +1501,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.particle-color').forEach(input => {
             const type = parseInt(input.closest('.particle-type').dataset.type);
             const hslDisplay = input.parentElement.querySelector('.hsl-display');
-            
+
             input.addEventListener('input', (e) => {
                 const hsl = hexToHsl(e.target.value);
                 gameState.particleColors[type] = hsl;
@@ -1474,11 +1537,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById("particle-force-lock").addEventListener('change', (e) => {
             gameState.isLockedParticleForce = e.target.checked;
-            
+
         });
         document.getElementById("particle-distance-lock").addEventListener('change', (e) => {
             gameState.isLockedParticleDistance = e.target.checked;
-            
+
         });
     }
     // 設置粒子影響範圍顯示的事件監聽器
@@ -1499,38 +1562,38 @@ document.addEventListener('DOMContentLoaded', () => {
     function hslToHex(hsl) {
         const match = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
         if (!match) return '#000000';
-        
+
         const h = parseInt(match[1]) / 360;
         const s = parseInt(match[2]) / 100;
         const l = parseInt(match[3]) / 100;
-        
+
         let r, g, b;
-        
+
         if (s === 0) {
             r = g = b = l;
         } else {
             const hue2rgb = (p, q, t) => {
                 if (t < 0) t += 1;
                 if (t > 1) t -= 1;
-                if (t < 1/6) return p + (q - p) * 6 * t;
-                if (t < 1/2) return q;
-                if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
                 return p;
             };
-            
+
             const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
             const p = 2 * l - q;
-            
-            r = hue2rgb(p, q, h + 1/3);
+
+            r = hue2rgb(p, q, h + 1 / 3);
             g = hue2rgb(p, q, h);
-            b = hue2rgb(p, q, h - 1/3);
+            b = hue2rgb(p, q, h - 1 / 3);
         }
-        
+
         const toHex = x => {
             const hex = Math.round(x * 255).toString(16);
             return hex.length === 1 ? '0' + hex : hex;
         };
-        
+
         return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     }
 
@@ -1538,40 +1601,40 @@ document.addEventListener('DOMContentLoaded', () => {
     function hexToHsl(hex) {
         // 移除 # 號（如果有的話）
         hex = hex.replace(/^#/, '');
-        
+
         // 解析 RGB 值
         const bigint = parseInt(hex, 16);
         const r = (bigint >> 16) & 255;
         const g = (bigint >> 8) & 255;
         const b = bigint & 255;
-        
+
         // 轉換為 0-1 範圍
         const rr = r / 255;
         const gg = g / 255;
         const bb = b / 255;
-        
+
         const max = Math.max(rr, gg, bb);
         const min = Math.min(rr, gg, bb);
         let h, s, l = (max + min) / 2;
-        
+
         if (max === min) {
             h = s = 0;
         } else {
             const d = max - min;
             s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-            
+
             switch (max) {
                 case rr: h = (gg - bb) / d + (gg < bb ? 6 : 0); break;
                 case gg: h = (bb - rr) / d + 2; break;
                 case bb: h = (rr - gg) / d + 4; break;
             }
-            
+
             h /= 6;
         }
-        
+
         return `hsl(${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`;
     }
-    
+
     // 初始化遊戲並開始更新循環
     updateParticleSystem();
     updateEveryThing();
