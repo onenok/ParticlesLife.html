@@ -1256,15 +1256,20 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.particleCounts = particleCounts;
     }
     // 添加粒子類型數量監聽器
+    let timer;
     document.getElementById('particle-types').addEventListener('input', (e) => {
-        const types = parseInt(e.target.value);
-        gameState.particleTypes = types;
-        initializeColors(types);
-        initializeMatrices(types, gameState.forceMatrix, gameState.distanceMatrix);
-        initializeParticleCounts(types);
-        updateParticleSystem();
-        updateEveryThing();
-        initGame();
+        if (timer !== undefined) clearTimeout(timer);
+        timer = setTimeout(() => {
+            const types = parseInt(e.target.value);
+            gameState.particleTypes = types;
+            initializeColors(types);
+            initializeMatrices(types, gameState.forceMatrix, gameState.distanceMatrix);
+            initializeParticleCounts(types);
+            updateParticleSystem();
+            updateEveryThing();
+            initGame();
+        }, 200);
+        
     });
 
     // 修改單元格選擇功能

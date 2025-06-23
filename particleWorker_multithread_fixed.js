@@ -662,13 +662,18 @@ async function initializeWorker(workerId) {
             console.log("worker " + workerId + " initializing...", performance.now());
 
             // 設置初始化超時
+            const startTime = performance.now();
+            let timeoutTriggered = false;
             const timeout = setTimeout(() => {
-                worker.terminate();
-                reject(new Error(`工作線程 ${workerId} 初始化超時`));
+                timeoutTriggered = true;
             }, 5000);
 
             // 處理工作線程消息
             worker.onmessage = function(e) {
+                if (timeoutTriggered) {
+                    let timeoutTime = performance.now()
+                    console.warn(`工作線程 ${workerId} 初始化超時, 用時: ${timeoutTime - startTime} 毫秒, 超了 ${timeoutTime - startTime - 5000} 毫秒`);
+                }
                 if (e.data.type === 'initComplete') {
                     clearTimeout(timeout);
                     if (e.data.status === 'success') {
@@ -945,7 +950,7 @@ let isRunnable = true;      // 是否可運行
 let canUpdate = false;       // 是否可以更新
 let isUpdating = false;      // 是否正在更新
 let isMovingCanvas = false; // 是否正在移動畫布
-let updateInterval = 16.66;  // 更新間隔(ms)
+let updateInterval = 6.944444;  // 更新間隔(ms)
 let frictionFactor = 0;      // 摩擦係數
 let performanceData = {};    // 性能數據對象
 

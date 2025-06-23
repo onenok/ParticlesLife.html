@@ -8,7 +8,7 @@ class uiRange extends HTMLElement {
             :host {
                 --ui-range-track-height: 4px;
                 --ui-range-thumb-size: 16px;
-                --ui-gray: #a2a9b6;
+                --ui-gray:rgb(158, 176, 211);
                 --ui-blue: #2a80eb;
                 display: inline-block;
                 position: relative;
@@ -133,7 +133,6 @@ class uiRange extends HTMLElement {
         this.create();
     }
     attributeChangedCallback (name, oldValue, newValue) {
-        // 略，非重点
         this.render(name, oldValue, newValue);
     }
     create () {
