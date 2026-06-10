@@ -7,9 +7,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>particles life</title>
+    <title>Particles Life - WebGL Testing</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gpu.js@latest/dist/gpu-browser.min.js"></script>
     <script src="main.js"></script>
     <script src="ui-range.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -45,9 +46,8 @@
             </div>
         </div>
 
-        <!-- 將按鈕組重組織並添加樣式 -->
+        <!-- 按鈕組 -->
         <div class="button-group">
-            <!-- 基本操作按鈕 -->
             <div class="control-section">
                 <h3>🎮 基本操作</h3>
                 <div class="button-container">
@@ -57,7 +57,6 @@
                 </div>
             </div>
 
-            <!-- 規則導入導出按鈕 -->
             <div class="control-section">
                 <h3>💾 規則管理</h3>
                 <div class="button-container">
@@ -69,7 +68,7 @@
             <input type="file" id="import-file" style="display: none;">
         </div>
 
-        <!-- 添加滑鼠吸引力滑塊 -->
+        <!-- 滑鼠吸引力 -->
         <div>
             <label for="mouse-force">滑鼠吸引力:</label>
             <input type="range" id="mouse-force" min="0" max="200" step="0.1" value="100">
@@ -77,6 +76,7 @@
         </div>
         <p class="description">按下 "x" 鍵可以持續吸引</p>
         <p class="description">按下 "z" 鍵可以鎖定吸力位置</p>
+
         <div class="control-section">
             <h3>物理參數</h3>
             <div class="control-item">
@@ -96,26 +96,62 @@
             <p class="description">UPS: Update Per Second，每秒更新次數</p>
             <p class="description">注意: 此功能用於鎖定更新間隔上限，如果電腦不能運行到那麼短的更新間隔，那麼你的電腦就無法運行到那麼短的更新間隔。</p>
         </div>
-        <!--
-         *   <div class="toggle-container">
-         *       <label for="isUsingGrid" class="toggle-label">𝄜 使用網格分割(g)</label>
-         *       <div class="toggle-switch">
-         *           <input type="checkbox" id="isUsingGrid">
-         *           <span class="slider"></span>
-         *       </div>
-         *   </div>
-        -->
+
+        <!-- 運算模式 -->
         <div class="control-section">
             <label for="threadMode" class="control-label">🔄 運算模式 (m)</label>
             <select id="threadMode" class="styled-select">
-                <option value="multithread">多線程模式</option>
-                <option value="multithread_gpu" disabled>GPU 加速模式 (開發中)</option>
-                <option value="multithread_wasm" disabled>WebAssembly 模式 (開發中)</option>
+                <option value="webgl" selected>WebGL GPU 模式</option>
+                <option value="cpu" disabled>CPU 模式 (後備)</option>
             </select>
-            <p class="description">選擇不同的運算模式以優化性能</p>
+            <p class="description">WebGL 加速計算</p>
         </div>
 
-        <!-- 在控制面板中添加性能數據顯示 -->
+        <!-- 碰撞 -->
+        <div class="control-section">
+            <h3>🔥 碰撞設定</h3>
+            <div class="toggle-container">
+                <label for="enableCollision" class="toggle-label">啟用粒子碰撞</label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="enableCollision">
+                    <span class="slider"></span>
+                </div>
+            </div>
+            <div>
+                <label for="collisionIterations">碰撞迭代次數:</label>
+                <input type="range" id="collisionIterations" min="1" max="10" step="1" value="3">
+                <input type="number" id="collisionIterations-number" min="1" max="10" step="1" value="3">
+            </div>
+        </div>
+
+        <!-- 邊界模式 -->
+        <div class="control-section">
+            <label for="boundaryMode" class="control-label">邊界模式</label>
+            <select id="boundaryMode" class="styled-select">
+                <option value="mirror">鏡像反射</option>
+                <option value="periodic">週期環繞</option>
+            </select>
+            <div>
+                <label for="boundaryIterations">邊界迭代次數:</label>
+                <input type="range" id="boundaryIterations" min="1" max="10" step="1" value="5">
+                <input type="number" id="boundaryIterations-number" min="1" max="10" step="1" value="5">
+            </div>
+        </div>
+
+        <!-- Canvas 限制 -->
+        <div class="control-section">
+            <h3>🖥️ Canvas 限制</h3>
+            <div>
+                <label for="minWidth">最小寬度:</label>
+                <input type="number" id="minWidth" value="400" min="200" max="800">
+            </div>
+            <div>
+                <label for="minHeight">最小高度:</label>
+                <input type="number" id="minHeight" value="300" min="150" max="600">
+            </div>
+        </div>
+
+        <!-- 性能數據 -->
         <div id="performance-data">
             <h3>性能數據</h3>
             <p>渲染FPS: <span id="fps"></span><br>(這並不是遊戲每秒更新次數。)</p>
@@ -159,7 +195,7 @@
             </p>
         </div>
 
-        <!-- 在控制面板中添加新的控制元素 -->
+        <!-- 網格設置 (stub) -->
         <div class="grid-controls">
             <h3>⌗ 網格設置</h3>
             <div class="toggle-container">
@@ -187,7 +223,7 @@
             </div>
         </div>
 
-        <!-- 在性能數據顯示區域之後添加以下代碼 -->
+        <!-- 粒子影響範圍顯示 -->
         <div>
             <h3>☢️ 粒子影響範圍顯示</h3>
             <div class="toggle-container">
@@ -208,15 +244,15 @@
                 </div>
             </div>
         </div>
+
+        <!-- 反饋 -->
         <div>
-            <p
-                style="font-size: 1.2em; font-weight: bold; color: #ff6b6b; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); margin: 15px 0;">
+            <p style="font-size: 1.2em; font-weight: bold; color: #ff6b6b; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); margin: 15px 0;">
                 💬 交流與反饋</p>
             <a href="https://github.com/onenok/ParticlesLife.html/issues"
                 style="text-decoration: none; display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 6px; background: #24292e; color: white; width: fit-content; transition: background 0.2s;">
                 <svg height="24" aria-hidden="true" viewBox="0 0 24 24" version="1.1" width="24" fill="currentColor">
-                    <path
-                        d="M12.5.75C6.146.75 1 5.896 1 12.25c0 5.089 3.292 9.387 7.863 10.91.575.101.79-.244.79-.546 0-.273-.014-1.178-.014-2.142-2.889.532-3.636-.704-3.866-1.35-.13-.331-.69-1.352-1.18-1.625-.402-.216-.977-.748-.014-.762.906-.014 1.553.834 1.769 1.179 1.035 1.74 2.688 1.25 3.349.948.1-.747.402-1.25.733-1.538-2.559-.287-5.232-1.279-5.232-5.678 0-1.25.445-2.285 1.178-3.09-.115-.288-.517-1.467.115-3.048 0 0 .963-.302 3.163 1.179.92-.259 1.897-.388 2.875-.388.977 0 1.955.13 2.875.388 2.2-1.495 3.162-1.179 3.162-1.179.633 1.581.23 2.76.115 3.048.733.805 1.179 1.825 1.179 3.09 0 4.413-2.688 5.39-5.247 5.678.417.36.776 1.05.776 2.128 0 1.538-.014 2.774-.014 3.162 0 .302.216.662.79.547C20.709 21.637 24 17.324 24 12.25 24 5.896 18.854.75 12.5.75Z">
+                    <path d="M12.5.75C6.146.75 1 5.896 1 12.25c0 5.089 3.292 9.387 7.863 10.91.575.101.79-.244.79-.546 0-.273-.014-1.178-.014-2.142-2.889.532-3.636-.704-3.866-1.35-.13-.331-.69-1.352-1.18-1.625-.402-.216-.977-.748-.014-.762.906-.014 1.553.834 1.769 1.179 1.035 1.74 2.688 1.25 3.349.948.1-.747.402-1.25.733-1.538-2.559-.287-5.232-1.279-5.232-5.678 0-1.25.445-2.285 1.178-3.09-.115-.288-.517-1.467.115-3.048 0 0 .963-.302 3.163 1.179.92-.259 1.897-.388 2.875-.388.977 0 1.955.13 2.875.388 2.2-1.495 3.162-1.179 3.162-1.179.633 1.581.23 2.76.115 3.048.733.805 1.179 1.825 1.179 3.09 0 4.413-2.688 5.39-5.247 5.678.417.36.776 1.05.776 2.128 0 1.538-.014 2.774-.014 3.162 0 .302.216.662.79.547C20.709 21.637 24 17.324 24 12.25 24 5.896 18.854.75 12.5.75Z">
                     </path>
                 </svg>
                 <span
@@ -225,7 +261,7 @@
             </a>
         </div>
     </div>
-    <canvas id="board2d"></canvas>
+    <canvas id="boardwebgl2"></canvas>
 </body>
 
 </html>

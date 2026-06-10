@@ -1,0 +1,36 @@
+{
+  "simulation": {
+    "minWidth": 400,
+    "minHeight": 300,
+    "maxVelocity": "auto",
+    "maxIterations": 5,
+    "ballRadius": 1.5
+  },
+  "physics": {
+    "dt": 0.006944,
+    "tHalf": 0.020,
+    "restitution": 0.8
+  },
+  "boundary": {
+    "mode": "mirror",
+    "enableAdaptive": false,
+    "enableClamp": true
+  },
+  "collision": {
+    "enableCollision": true,
+    "collisionIterations": 3
+  },
+  "mouse": {
+    "defaultForce": 100,
+    "maxForce": 200
+  },
+  "forces": {
+    "forceMin": -1,
+    "forceMax": 1,
+    "distMin": 0,
+    "distRandMin": 10,
+    "distRandMax": 300,
+    "forceRandMin": -1,
+    "forceRandMax": 1
+  }
+}

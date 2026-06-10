@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粒子運算基準測試</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="../node_modules/gpu.js/dist/gpu-browser.min.js"></script>
+    <script>
+        // 確保 Chart.js 正確載入
+        window.addEventListener('load', function() {
+            if (typeof Chart !== 'undefined') {
+                console.log('Chart.js 已成功載入');
+            } else {
+                console.error('Chart.js 未載入，嘗試重新載入');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js';
+                script.onload = function() {
+                    console.log('Chart.js 重新載入成功');
+                };
+                document.head.appendChild(script);
+            }
+        });
+    </script>
+    <script>
+        // 確保 GPU.js 載入完成
+        window.addEventListener('load', function() {
+            if (typeof GPU !== 'undefined') {
+                try {
+                    // 檢查是否為構造函數
+                    if (GPU.GPU && typeof GPU.GPU === 'function') {
+                        window.GPU = GPU.GPU;  // 使用正確的構造函數
+                    } else if (typeof GPU === 'function') {
+                        window.GPU = GPU;  // GPU 本身就是構造函數
+                    } else {
+                        throw new Error('找不到 GPU 構造函數');
+                    }
+                    console.log('GPU.js 已成功載入');
+                    // 測試 GPU 構造函數
+                    const testGPU = new window.GPU();
+                    console.log('GPU 實例化成功:', testGPU);
+                } catch (error) {
+                    console.error('GPU.js 初始化失敗:', error);
+                }
+            }
+        });
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        #output {
+            white-space: pre;
+            font-family: monospace;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            grid-column: 1 / -1;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .controls {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        button, select, input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .progress {
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #4CAF50;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>粒子運算基準測試</h1>
+    
+    <div class="container">
+        <div class="controls">
+            <div>
+                <label for="particleCount">粒子數量:</label>
+                <input type="number" id="particleCount" value="1000" min="100" max="10000">
+            </div>
+            <div>
+                <label for="iterations">迭代次數:</label>
+                <input type="number" id="iterations" value="100" min="10" max="1000">
+            </div>
+            <div>
+                <label for="typeCount">粒子類型數:</label>
+                <input type="number" id="typeCount" value="4" min="2" max="8">
+            </div>
+            <button id="startButton">開始測試</button>
+            <button id="exportButton" disabled>匯出結果</button>
+        </div>
+
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div id="output">等待測試開始...</div>
+        
+        <div class="chart-container">
+            <canvas id="timeChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="memoryChart"></canvas>
+        </div>
+    </div>
+
+    <script type="module">
+        // 檢查瀏覽器相容性
+        async function checkCompatibility() {
+            const checks = {
+                webgl2: () => {
+                    const canvas = document.createElement('canvas');
+                    return !!canvas.getContext('webgl2');
+                },
+                gpu: () => {
+                    // 檢查 GPU.js 是否正確載入並可用
+                    try {
+                        // 確保 GPU 構造函數可用
+                        if (!window.GPU || typeof window.GPU !== 'function') {
+                            console.warn('GPU.js 未正確載入');
+                            return false;
+                        }
+                        // 建立測試實例
+                        const testGPU = new window.GPU();
+                        if (!testGPU || typeof testGPU.createKernel !== 'function') {
+                            console.warn('GPU.js 實例化失敗');
+                            return false;
+                        }
+                        // 測試基本運算
+                        const testKernel = testGPU.createKernel(function() {
+                            return 1;
+                        }).setOutput([1]);
+                        const result = testKernel();
+                        testKernel.destroy();
+                        return result[0] === 1;
+                    } catch (error) {
+                        console.warn('GPU.js 測試失敗:', error);
+                        return false;
+                    }
+                },
+                wasm: () => typeof WebAssembly !== 'undefined',
+                simd: async () => {
+                    try {
+                        await WebAssembly.compile(new Uint8Array([
+                            0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,
+                            2,1,0,7,8,1,4,116,101,115,116,0,0,10,15,
+                            1,13,0,65,0,253,15,253,98,0,0,0,0,0,11
+                        ]));
+                        return true;
+                    } catch {
+                        return false;
+                    }
+                }
+            };
+
+            const results = {
+                webgl2: checks.webgl2(),
+                gpu: checks.gpu(),
+                wasm: checks.wasm(),
+                simd: await checks.simd()
+            };
+
+            if (!results.webgl2) console.warn('WebGL 2 不可用，相關測試將被跳過');
+            if (!results.gpu) console.warn('GPU.js 不可用，相關測試將被跳過');
+            if (!results.wasm) console.warn('WebAssembly 不可用，相關測試將被跳過');
+            if (!results.simd) console.warn('SIMD 不可用，相關測試將被跳過');
+
+            return results;
+        }
+
+        // 等待所有必要的資源載入
+        await new Promise(resolve => window.addEventListener('load', resolve));
+
+        // 確保 GPU.js 已載入並可用
+        let retries = 0;
+        const maxRetries = 5;
+        let compatibility;
+
+        while (retries < maxRetries) {
+            compatibility = await checkCompatibility();
+            if (compatibility.gpu) {
+                console.log('GPU.js 已成功載入');
+                break;
+            }
+            console.warn(`GPU.js 載入重試中 (${retries + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            retries++;
+        }
+
+        if (!compatibility.gpu) {
+            console.error('GPU.js 載入失敗，測試將跳過 GPU.js 相關實現');
+        }
+
+        import { ParticleBenchmark } from './benchmark.js';
+        import { JavaScriptImplementation } from './javascriptImplementation.js';
+        import { WebGLFloatImplementation } from './webglFloat.js';
+        import { WebGLIntImplementation } from './webglInt.js';
+        import { GPUIntImplementation } from './gpuInt.js';
+        import { WasmSIMDFloatImplementation } from './wasmSIMDFloat.js';
+        import { WasmSIMDIntImplementation } from './wasmSIMDInt.js';
+        // GPU.js 浮點數版本已移除：效能表現不符合需求
+
+        // 重定向 console.log 到 output div
+        const output = document.getElementById('output');
+        const originalLog = console.log;
+        console.log = function() {
+            output.textContent += Array.from(arguments).join(' ') + '\n';
+            output.scrollTop = output.scrollHeight;
+            originalLog.apply(console, arguments);
+        };
+
+        let timeChart = null;
+        let memoryChart = null;
+        let lastResults = null;
+
+        function initCharts() {
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js 未載入，無法初始化圖表');
+                return;
+            }
+
+            if (timeChart) timeChart.destroy();
+            if (memoryChart) memoryChart.destroy();
+
+            timeChart = new Chart(document.getElementById('timeChart'), {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '執行時間 (ms)',
+                        data: [],
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '毫秒 (ms)'
+                            }
+                        }
+                    }
+                }
+            });
+
+            memoryChart = new Chart(document.getElementById('memoryChart'), {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '記憶體使用 (MB)',
+                        data: [],
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '記憶體 (MB)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts(results) {
+            const labels = [];
+            const timeData = [];
+            const memoryData = [];
+
+            for (const [name, stats] of results) {
+                if (!stats.error) {
+                    labels.push(name);
+                    timeData.push(stats.median);
+                    memoryData.push(stats.avgMemory ? stats.avgMemory / (1024 * 1024) : 0);
+                }
+            }
+
+            timeChart.data.labels = labels;
+            timeChart.data.datasets[0].data = timeData;
+            timeChart.update();
+
+            memoryChart.data.labels = labels;
+            memoryChart.data.datasets[0].data = memoryData;
+            memoryChart.update();
+        }
+
+        document.getElementById('startButton').onclick = async function() {
+            const startButton = this;
+            const exportButton = document.getElementById('exportButton');
+            const progressBar = document.getElementById('progressBar');
+            
+            startButton.disabled = true;
+            exportButton.disabled = true;
+            output.textContent = '測試開始...\n';
+            
+            // 確保 Chart.js 已載入
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js 未載入，請等待...');
+                await new Promise(resolve => {
+                    const checkChart = () => {
+                        if (typeof Chart !== 'undefined') {
+                            resolve();
+                        } else {
+                            setTimeout(checkChart, 100);
+                        }
+                    };
+                    checkChart();
+                });
+            }
+            initCharts();
+
+            try {
+                const particleCount = parseInt(document.getElementById('particleCount').value);
+                const iterations = parseInt(document.getElementById('iterations').value);
+                const typeCount = parseInt(document.getElementById('typeCount').value);
+
+                const benchmark = new ParticleBenchmark({
+                    particleCount,
+                    iterations,
+                    typeCount,
+                    onProgress: (progress) => {
+                        progressBar.style.width = `${progress * 100}%`;
+                    }
+                });
+
+                // 添加可用的實現
+                const implementations = [
+                    ['normal javascript', JavaScriptImplementation],
+                    compatibility.webgl2 && ['WebGL Float', WebGLFloatImplementation],
+                    compatibility.webgl2 && ['WebGL Int', WebGLIntImplementation],
+                    compatibility.gpu && ['GPU.js Int', GPUIntImplementation],
+                    (compatibility.wasm && compatibility.simd) && ['WASM SIMD Float', WasmSIMDFloatImplementation],
+                    (compatibility.wasm && compatibility.simd) && ['WASM SIMD Int', WasmSIMDIntImplementation]
+                ].filter(Boolean);
+
+                if (implementations.length === 0) {
+                    throw new Error('沒有可用的實現方法，請檢查瀏覽器相容性');
+                }
+
+                for (const [name, Implementation] of implementations) {
+                    try {
+                        const impl = new Implementation();
+                        benchmark.addImplementation(
+                            name,
+                            async (data) => {
+                                try {
+                                    await impl.init(data);
+                                    return impl;
+                                } catch (error) {
+                                    console.error(`${name} 初始化失敗:`, error);
+                                    throw error;
+                                }
+                            },
+                            async (data) => {
+                                try {
+                                    return await impl.run(data);
+                                } catch (error) {
+                                    console.error(`${name} 運行失敗:`, error);
+                                    throw error;
+                                }
+                            },
+                            async () => {
+                                try {
+                                    await impl.cleanup();
+                                } catch (error) {
+                                    console.error(`${name} 清理失敗:`, error);
+                                }
+                            }
+                        );
+                    } catch (error) {
+                        console.error(`無法初始化 ${name}:`, error);
+                    }
+                }
+
+                // 運行基準測試
+                lastResults = await benchmark.compareAll();
+                updateCharts(lastResults);
+                exportButton.disabled = false;
+
+            } catch (err) {
+                console.log('錯誤:', err);
+            } finally {
+                startButton.disabled = false;
+            }
+        };
+
+        document.getElementById('exportButton').onclick = function() {
+            if (!lastResults) return;
+
+            const benchmark = new ParticleBenchmark({
+                particleCount: parseInt(document.getElementById('particleCount').value),
+                iterations: parseInt(document.getElementById('iterations').value),
+                typeCount: parseInt(document.getElementById('typeCount').value)
+            });
+
+            const json = benchmark.exportResults(lastResults);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `benchmark-results-${new Date().toISOString()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+
+        // 初始化圖表（確保 Chart.js 已載入）
+        window.addEventListener('load', function() {
+            if (typeof Chart !== 'undefined') {
+                initCharts();
+                console.log('Chart.js 已成功載入');
+            } else {
+                console.error('Chart.js 未載入');
+            }
+        });
+    </script>
+</body>
+</html>

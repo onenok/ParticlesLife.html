@@ -1,0 +1,26 @@
+# Ignore OS and editor temporary files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*.tmp
+*~
+
+# Ignore log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Ignore dependency directories
+node_modules/
+
+# Ignore build / output folders
+dist/
+out/
+build/
+
+# Ignore IDE/editor folders
+.vscode/
+.idea/

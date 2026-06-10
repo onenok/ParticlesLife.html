@@ -1,0 +1,23 @@
+{
+  "name": "particles-life.html",
+  "version": "1.0.0",
+  "description": "粒子生命模擬器 (Particles Life Simulator)",
+  "main": "main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "vite serve",
+    "clean": "rimraf dist"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "browserify": "^17.0.1",
+    "gpu.js": "^2.16.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.12"
+  }
+}
